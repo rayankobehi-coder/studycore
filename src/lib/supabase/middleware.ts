@@ -7,7 +7,8 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  // The demo cookie selects public, fictional data only; it is never an auth token.
+  if (!supabaseUrl || !supabaseAnonKey || request.cookies.get('studycore_demo')?.value === 'true') {
     return supabaseResponse;
   }
 
@@ -44,6 +45,12 @@ export async function updateSession(request: NextRequest) {
     '/analytics',
     '/resources',
     '/profile',
+    '/settings',
+    '/goals',
+    '/journey',
+    '/aide',
+    '/notifications',
+    '/onboarding',
   ];
 
   const isProtectedPath = protectedPaths.some((path) =>
@@ -53,7 +60,10 @@ export async function updateSession(request: NextRequest) {
   if (!user && isProtectedPath) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    return NextResponse.redirect(url);
+    url.searchParams.set('next', request.nextUrl.pathname);
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie));
+    return response;
   }
 
   // Redirect authenticated users away from auth pages

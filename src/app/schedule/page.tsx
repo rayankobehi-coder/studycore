@@ -1,157 +1,177 @@
 'use client';
-
+import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { PageHead } from '@/components/academic';
+import { useWorkspace } from '@/components/providers/workspace-provider';
+import { Segmented } from '@/components/ui/segmented';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  MapPin,
-  User,
-  Plus,
-} from 'lucide-react';
+import { AddEventDialog } from '@/components/forms/planning-dialogs';
+import { getCalendarEvents } from '@/lib/workspace/selectors';
+import { addDays, dateKey, minutes, mondayOf, parseDate, formatDate } from '@/lib/workspace/dates';
+import { CalendarPlus, ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react';
+import type { ScheduleEvent } from '@/lib/types';
 
-interface ScheduleItem {
-  id: string;
-  time: string;
-  title: string;
-  type: 'COURSE' | 'EXAM' | 'REVISION';
-  room?: string;
-  teacher?: string;
-  color: string;
-}
-
-interface DaySchedule {
-  day: string;
-  date: string;
-  items: ScheduleItem[];
-}
-
-const weekSchedule: DaySchedule[] = [
-  {
-    day: 'Lundi',
-    date: '6 octobre',
-    items: [
-      { id: '1', time: '08:00', title: 'Algorithmique', type: 'COURSE', room: 'B12', teacher: 'M. Dupont', color: 'border-l-indigo-500 bg-indigo-50' },
-      { id: '2', time: '10:00', title: 'Base de données', type: 'COURSE', room: 'C04', teacher: 'Mme Martin', color: 'border-l-emerald-500 bg-emerald-50' },
-      { id: '3', time: '14:00', title: 'Réseaux', type: 'COURSE', room: 'B08', teacher: 'M. Bernard', color: 'border-l-amber-500 bg-amber-50' },
-    ],
-  },
-  {
-    day: 'Mardi',
-    date: '7 octobre',
-    items: [
-      { id: '4', time: '09:00', title: 'Anglais', type: 'COURSE', room: 'A11', teacher: 'Mme Petit', color: 'border-l-rose-500 bg-rose-50' },
-      { id: '5', time: '11:00', title: 'Mathématiques', type: 'COURSE', room: 'B12', teacher: 'M. Dubois', color: 'border-l-purple-500 bg-purple-50' },
-      { id: '6', time: '14:00', title: 'TP Algorithmique', type: 'COURSE', room: 'Labo 3', teacher: 'M. Dupont', color: 'border-l-indigo-500 bg-indigo-50' },
-    ],
-  },
-  {
-    day: 'Mercredi',
-    date: '8 octobre',
-    items: [
-      { id: '7', time: '08:00', title: 'Réseaux', type: 'COURSE', room: 'B08', teacher: 'M. Bernard', color: 'border-l-amber-500 bg-amber-50' },
-      { id: '8', time: '10:00', title: 'Révision Algorithmique', type: 'REVISION', room: 'Bibliothèque', color: 'border-l-gray-500 bg-gray-50' },
-    ],
-  },
-  {
-    day: 'Jeudi',
-    date: '9 octobre',
-    items: [
-      { id: '9', time: '08:00', title: 'Base de données', type: 'COURSE', room: 'C04', teacher: 'Mme Martin', color: 'border-l-emerald-500 bg-emerald-50' },
-      { id: '10', time: '10:00', title: 'TD Mathématiques', type: 'COURSE', room: 'B12', teacher: 'M. Dubois', color: 'border-l-purple-500 bg-purple-50' },
-    ],
-  },
-  {
-    day: 'Vendredi',
-    date: '10 octobre',
-    items: [
-      { id: '11', time: '09:00', title: 'Algorithmique', type: 'COURSE', room: 'B12', teacher: 'M. Dupont', color: 'border-l-indigo-500 bg-indigo-50' },
-      { id: '12', time: '11:00', title: 'Anglais - Oral', type: 'EXAM', room: 'A11', teacher: 'Mme Petit', color: 'border-l-red-500 bg-red-50' },
-    ],
-  },
-];
-
-const typeBadge = {
-  COURSE: { label: 'Cours', variant: 'info' as const },
-  EXAM: { label: 'Examen', variant: 'danger' as const },
-  REVISION: { label: 'Révision', variant: 'outline' as const },
-};
+type View = 'day' | 'week' | 'month';
+const START_HOUR = 8;
+const END_HOUR = 20;
+const PX_PER_MIN = 1;
+const eventClass: Record<ScheduleEvent['type'], string> = { COURSE: 'event-course', EXAM: 'event-exam', REVISION: 'event-revision', PERSONAL: 'event-personal', ASSIGNMENT: 'event-assignment' };
+const eventLabel: Record<ScheduleEvent['type'], string> = { COURSE: 'Cours', EXAM: 'Examen', REVISION: 'Révision', PERSONAL: 'Personnel', ASSIGNMENT: 'Échéance' };
 
 export default function SchedulePage() {
-  const [currentWeek, setCurrentWeek] = useState(0);
+  const { data } = useWorkspace();
+  const [view, setView] = useState<View>('week');
+  const [anchor, setAnchor] = useState(dateKey());
+  const [addOpen, setAddOpen] = useState(false);
+  const [selected, setSelected] = useState<ScheduleEvent | null>(null);
+  const events = useMemo(() => getCalendarEvents(data), [data]);
+  const anchorDate = parseDate(anchor);
+  const weekStart = mondayOf(anchorDate);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const dayEvents = events.filter(e => e.date === anchor);
+
+  function shift(direction: number) {
+    const step = view === 'day' ? 1 : view === 'week' ? 7 : 30;
+    setAnchor(dateKey(addDays(anchor, step * direction)));
+  }
+  const monthStart = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
+  const gridStart = mondayOf(monthStart);
+  const monthDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+  const title = view === 'month' ? new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(anchorDate) : view === 'week' ? `Semaine du ${formatDate(weekStart, { day: 'numeric', month: 'long' })}` : formatDate(anchor, { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+
+  function EventBlock({ event, compact = false }: { event: ScheduleEvent; compact?: boolean }) {
+    const top = (minutes(event.startTime) - START_HOUR * 60) * PX_PER_MIN;
+    const height = Math.max(34, (minutes(event.endTime) - minutes(event.startTime)) * PX_PER_MIN - 4);
+    return (
+      <button type="button" className={`event ${eventClass[event.type]}`} style={compact ? undefined : { top, height }} onClick={() => setSelected(event)} aria-label={`${event.title}, ${eventLabel[event.type]}, ${event.startTime} à ${event.endTime}${event.room ? `, salle ${event.room}` : ''}`}>
+        <strong>{event.title}</strong>
+        <small>{event.startTime} – {event.endTime}{event.room ? ` · ${event.room}` : ''}</small>
+      </button>
+    );
+  }
+
+  const dayList = (
+    <section className="tl" aria-label="Programme du jour">
+      {dayEvents.length === 0 && <div className="empty-state empty-compact"><p>Rien de prévu ce jour-là. Un bon moment pour réviser.</p></div>}
+      {dayEvents.map(event => {
+        const exam = event.type === 'EXAM';
+        return (
+          <button type="button" key={event.id} className={`tl-item ${exam ? 'is-exam' : ''}`} onClick={() => setSelected(event)}>
+            <span className="tl-time num">{event.startTime}<small>{event.endTime}</small></span>
+            <span className="tl-card">
+              <span><span className={`badge ${exam ? 'badge-danger' : 'badge-outline'}`}>{eventLabel[event.type]}</span></span>
+              <strong>{event.title}</strong>
+              <span className="small muted">{event.description ?? eventLabel[event.type]}</span>
+              {event.room && <span className="tl-room"><MapPin size={14} aria-hidden="true" />{event.room}</span>}
+            </span>
+          </button>
+        );
+      })}
+      <button type="button" className="tl-add" onClick={() => setAddOpen(true)}><CalendarPlus size={16} />Ajouter un événement personnalisé</button>
+    </section>
+  );
 
   return (
-    <AppLayout>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Emploi du temps</h1>
-          <p className="mt-1 text-gray-500">Semaine du {weekSchedule[0].date}</p>
+    <AppLayout title="Planning">
+      <PageHead eyebrow="Calendrier" title="Emploi du temps" description="Cours, examens et révisions au même endroit. Les examens sont signalés par une trame rouge." actions={<Button onClick={() => setAddOpen(true)}><CalendarPlus size={16} />Ajouter un événement</Button>} />
+      <div className="row-between" style={{ marginBottom: 18, gap: 12 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className="icon-button" onClick={() => shift(-1)} aria-label="Précédent"><ChevronLeft size={18} /></button>
+          <button type="button" className="button button-outline button-sm" onClick={() => setAnchor(dateKey())}>Aujourd’hui</button>
+          <button type="button" className="icon-button" onClick={() => shift(1)} aria-label="Suivant"><ChevronRight size={18} /></button>
+          <h2 style={{ marginLeft: 8, textTransform: 'capitalize' }}>{title}</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setCurrentWeek(currentWeek - 1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium">S{Math.abs(currentWeek) + 1}</span>
-          <Button variant="outline" size="sm" onClick={() => setCurrentWeek(currentWeek + 1)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter
-          </Button>
-        </div>
+        <Segmented label="Vue du planning" value={view} onChange={setView} options={[{ value: 'day', label: 'Jour' }, { value: 'week', label: 'Semaine' }, { value: 'month', label: 'Mois' }]} />
+      </div>
+      <div className="row" style={{ gap: 18, marginBottom: 14, flexWrap: 'wrap' }}>
+        {(['COURSE', 'EXAM', 'REVISION', 'PERSONAL'] as ScheduleEvent['type'][]).map(type => <span key={type} className="legend-chip"><i className={eventClass[type]} />{eventLabel[type]}</span>)}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {weekSchedule.map((day) => (
-          <Card key={day.day}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                {day.day}
-                <span className="block text-sm font-normal text-gray-500">{day.date}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {day.items.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">Aucun cours</p>
-              ) : (
-                day.items.map((item) => {
-                  const badge = typeBadge[item.type];
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-lg border-l-4 p-3 ${item.color}`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                        <span className="text-xs text-gray-500">{item.time}</span>
-                      </div>
-                      <p className="font-medium text-sm">{item.title}</p>
-                      {item.room && (
-                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                          <MapPin className="h-3 w-3" />
-                          {item.room}
-                        </div>
-                      )}
-                      {item.teacher && (
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <User className="h-3 w-3" />
-                          {item.teacher}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {view === 'week' && (
+        <div className="wk-strip" role="group" aria-label="Jours de la semaine">
+          {days.map(day => {
+            const key = dateKey(day);
+            const count = events.filter(e => e.date === key).length;
+            const active = key === anchor;
+            return (
+              <button type="button" key={key} className={`wk-day ${active ? 'is-active' : ''} ${key === dateKey() ? 'is-today' : ''}`} onClick={() => setAnchor(key)} aria-pressed={active}>
+                <span className="tiny">{new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(day)}</span>
+                <b className="num">{day.getDate()}</b>
+                <i aria-hidden="true" className={count ? 'has-dot' : ''} />
+                <span className="sr-only">{count} événement(s)</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {view === 'week' && (
+        <div className="week week-desktop" role="table" aria-label={`Semaine du ${formatDate(weekStart)}`}>
+          <div className="week-head" role="row">
+            <div role="columnheader" aria-label="Heure" style={{ background: 'var(--surface-2)' }} />
+            {days.map(day => {
+              const isToday = dateKey(day) === dateKey();
+              return <div key={dateKey(day)} role="columnheader" className={isToday ? 'is-today' : ''}><span className="tiny">{new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(day)}</span><b className="num">{day.getDate()}</b></div>;
+            })}
+          </div>
+          <div className="week-hours" role="rowgroup" style={{ gridColumn: 1, gridRow: 2 }} aria-hidden="true">
+            {hours.map(h => <span key={h} style={{ height: 60 }}>{String(h).padStart(2, '0')}:00</span>)}
+          </div>
+          {days.map(day => {
+            const key = dateKey(day);
+            const dayItems = events.filter(e => e.date === key);
+            return (
+              <div key={key} className="week-col" role="cell" style={{ height: (END_HOUR - START_HOUR) * 60 * PX_PER_MIN }} aria-label={`${formatDate(day, { weekday: 'long', day: 'numeric' })} : ${dayItems.length} événement(s)`}>
+                {dayItems.map(event => <EventBlock key={event.id} event={event} />)}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {view === 'week' && <div className="wk-mobile">{dayList}</div>}
+
+      {view === 'month' && (
+        <div className="month" role="grid" aria-label={title}>
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="tiny" style={{ minHeight: 'auto', padding: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', background: 'var(--surface-2)' }}>{d}</div>)}
+          {monthDays.map(day => {
+            const key = dateKey(day);
+            const items = events.filter(e => e.date === key);
+            const muted = day.getMonth() !== anchorDate.getMonth();
+            const hasExam = items.some(i => i.type === 'EXAM');
+            return (
+              <button type="button" key={key} className={`${muted ? 'is-muted' : ''} ${items.length ? 'has-event' : ''} ${key === dateKey() ? 'is-today' : ''}`} style={{ textAlign: 'left', border: 0, cursor: 'pointer' }} onClick={() => { setAnchor(key); setView('day'); }} aria-label={`${formatDate(day, { day: 'numeric', month: 'long' })}, ${items.length} événement(s)`}>
+                <b className="num">{day.getDate()}</b>
+                {items.slice(0, 3).map(item => <span key={item.id} className={`month-event ${item.type === 'EXAM' ? 'exam' : ''}`}>{item.startTime} {item.title}</span>)}
+                {items.length > 3 && <span className="tiny muted">+{items.length - 3}</span>}
+                {hasExam && <span className="tiny" style={{ color: 'var(--danger)', fontWeight: 700 }}>Examen</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {view === 'day' && (
+        <div className="split" style={{ gridTemplateColumns: 'minmax(0,1fr) 320px' }}>
+          {dayList}
+          <aside className="panel stack" style={{ gap: 12 }}>
+            <h2>Le jour en un coup d’œil</h2>
+            <p className="small muted">{dayEvents.length} événement(s) · {dayEvents.filter(e => e.type === 'EXAM').length} examen(s)</p>
+            <p className="small muted">Les événements sont synchronisés avec tes échéances et tes sessions de révision.</p>
+          </aside>
+        </div>
+      )}
+
+      {selected && (
+        <div className="panel" style={{ marginTop: 18, display: 'grid', gap: 10 }} role="status" aria-live="polite">
+          <div className="row-between"><strong>{selected.title}</strong><button className="button button-ghost button-sm" onClick={() => setSelected(null)}>Fermer</button></div>
+          <div className="row small muted" style={{ gap: 16, flexWrap: 'wrap' }}><span className="row" style={{ gap: 6 }}><Clock size={15} />{formatDate(selected.date, { weekday: 'long', day: 'numeric', month: 'long' })} · {selected.startTime} – {selected.endTime}</span>{selected.room && <span className="row" style={{ gap: 6 }}><MapPin size={15} />{selected.room}</span>}<span className={`badge ${selected.type === 'EXAM' ? 'badge-danger' : 'badge-outline'}`}>{eventLabel[selected.type]}</span></div>
+          {selected.description && <p className="small muted">{selected.description}</p>}
+        </div>
+      )}
+      <AddEventDialog open={addOpen} onOpenChange={setAddOpen} defaultDate={anchor} />
     </AppLayout>
   );
 }

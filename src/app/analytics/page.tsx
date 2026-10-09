@@ -1,164 +1,80 @@
 'use client';
-
+import { useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import {
-  BarChart3,
-  TrendingUp,
-  TrendingDown,
-  ArrowUp,
-  ArrowDown,
-} from 'lucide-react';
-
-const subjectPerformance = [
-  { name: 'Anglais', average: 16.2, trend: 'up', color: 'text-green-600', bg: 'bg-green-50' },
-  { name: 'Gestion', average: 14.8, trend: 'up', color: 'text-green-600', bg: 'bg-green-50' },
-  { name: 'Réseaux', average: 13.9, trend: 'up', color: 'text-green-600', bg: 'bg-green-50' },
-  { name: 'Algorithmique', average: 11.8, trend: 'down', color: 'text-yellow-600', bg: 'bg-yellow-50' },
-  { name: 'Base de données', average: 8.5, trend: 'down', color: 'text-red-600', bg: 'bg-red-50' },
-  { name: 'Mathématiques', average: 7.8, trend: 'down', color: 'text-red-600', bg: 'bg-red-50' },
-];
-
-const evolutionData = [
-  { month: 'Sept', average: 11.2 },
-  { month: 'Oct', average: 12.5 },
-  { month: 'Nov', average: 11.8 },
-  { month: 'Déc', average: 13.2 },
-  { month: 'Jan', average: 14.0 },
-  { month: 'Fév', average: 13.5 },
-  { month: 'Mar', average: 14.27 },
-];
+import { StatCard, EvolutionChart, SubjectBars, DistributionChart, Grade } from '@/components/academic';
+import { useWorkspace } from '@/components/providers/workspace-provider';
+import { EmptyState } from '@/components/ui/states';
+import { getEngine, getEvolution, getSubjectResults, getSummary } from '@/lib/workspace/selectors';
+import { number } from '@/lib/workspace/dates';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ChartTooltip } from '@/components/academic';
+import { BarChart3, Download, Flag, Trophy, TrendingDown, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { exportReport } from '@/lib/workspace/export';
+import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
-  const maxAverage = Math.max(...evolutionData.map((d) => d.average));
+  const { data } = useWorkspace();
+  const summary = useMemo(() => getSummary(data), [data]);
+  const results = useMemo(() => getSubjectResults(data).filter(r => r.grades.length), [data]);
+  const evolution = useMemo(() => getEvolution(data), [data]);
+  const best = [...results].sort((a, b) => b.average - a.average)[0];
+  const weakest = [...results].sort((a, b) => a.average - b.average)[0];
+  const delta = data.previousAverage === null ? 0 : summary.average - data.previousAverage;
+  const unitData = useMemo(() => {
+    const engine = getEngine(data);
+    const map = new Map<string, { name: string; items: { value: number; weight: number }[] }>();
+    results.forEach(r => {
+      const unitId = data.subjects.find(s => s.id === r.subjectId)?.unitId ?? 'autre';
+      const label = { informatique: 'Informatique', langues: 'Langues', sciences: 'Sciences', professionnel: 'Pro & gestion' }[unitId] ?? 'Autres';
+      const bucket = map.get(unitId) ?? { name: label, items: [] };
+      bucket.items.push({ value: r.average, weight: r.coefficient });
+      map.set(unitId, bucket);
+    });
+    return [...map.values()].map(b => ({ name: b.name, value: engine.weightedAverage(b.items) }));
+  }, [data, results]);
+
+  if (!summary.hasGrades) return <AppLayout title="Analytics"><EmptyState title="Pas encore assez de données." description="Ajoute tes premières notes : les analyses se dessinent dès la première évaluation." /></AppLayout>;
 
   return (
-    <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
-        <p className="mt-1 text-gray-500">Analyse détaillée de tes performances</p>
+    <AppLayout title="Analytics">
+      <header className="nm-head" style={{ marginBottom: 18 }}>
+        <div style={{ minWidth: 0 }}>
+          <h1>Mes performances</h1>
+          <p>Analyse statistique de tes résultats et tendances académiques. Indicatif, non officiel.</p>
+        </div>
+      </header>
+      <section className="stats-grid" aria-label="Indicateurs">
+        <StatCard label="Moyenne générale" icon={<BarChart3 size={16} />} value={<span className="num">{number(summary.average)}</span>} unit="/20" />
+        <StatCard label="Évolution" tone={delta < 0 ? 'danger' : 'ok'} icon={delta < 0 ? <TrendingDown size={16} /> : <TrendingUp size={16} />} value={<span className="num">{delta >= 0 ? '+' : ''}{number(delta)}</span>} foot={<>depuis le dernier semestre</>} />
+        <StatCard label="Meilleure matière" tone="ok" icon={<Trophy size={16} />} value={<span className="num" style={{ fontSize: '1.45rem' }}>{best?.subjectName}</span>} foot={<>{best && <Grade value={best.average} size="sm" />}</>} />
+        <StatCard label="Matière la plus faible" tone="warn" value={<span className="num" style={{ fontSize: '1.45rem' }}>{weakest?.subjectName}</span>} foot={<>{weakest && <Grade value={weakest.average} size="sm" />}</>} />
+      </section>
+      <div className="two-col" style={{ marginTop: 20 }}>
+        <section className="panel" aria-labelledby="ev"><div className="panel-head"><div><h2 id="ev">Graphique d’évolution</h2><p>Moyenne cumulée selon les dates d’évaluation.</p></div></div><EvolutionChart points={evolution.map(p => ({ label: p.label, value: p.value }))} target={data.goals.find(g => g.id === 'goal-average')?.targetValue} height={280} /></section>
+        <section className="panel" aria-labelledby="dist"><div className="panel-head"><div><h2 id="dist">Répartition des résultats</h2><p>Matières par statut.</p></div></div><DistributionChart results={summary.results} /></section>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Evolution Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-indigo-600" />
-              Évolution de la moyenne générale
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-3 h-48">
-              {evolutionData.map((point, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">
-                    {point.average.toFixed(1)}
-                  </span>
-                  <div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-indigo-500 to-indigo-400 transition-all hover:from-indigo-600"
-                    style={{ height: `${(point.average / maxAverage) * 100}%` }}
-                  />
-                  <span className="text-xs text-gray-400">{point.month}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Forces */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
-              Forces
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {subjectPerformance
-              .filter((s) => s.average >= 12)
-              .map((subject) => (
-                <div
-                  key={subject.name}
-                  className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <ArrowUp className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">{subject.name}</span>
-                  </div>
-                  <span className="font-bold text-green-700">
-                    {subject.average.toFixed(1)}
-                  </span>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-
-        {/* Faiblesses */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5 text-red-600" />
-              Faiblesses
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {subjectPerformance
-              .filter((s) => s.average < 12)
-              .map((subject) => (
-                <div
-                  key={subject.name}
-                  className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <ArrowDown className="h-4 w-4 text-red-500" />
-                    <span className="font-medium">{subject.name}</span>
-                  </div>
-                  <span className="font-bold text-red-700">
-                    {subject.average.toFixed(1)}
-                  </span>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-
-        {/* Performance par matière */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-indigo-600" />
-              Performance par matière
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {subjectPerformance.map((subject) => (
-                <div key={subject.name}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{subject.name}</span>
-                    <span className={`text-sm font-bold ${subject.color}`}>
-                      {subject.average.toFixed(1)}/20
-                    </span>
-                  </div>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        subject.average >= 12
-                          ? 'bg-green-500'
-                          : subject.average >= 10
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                      }`}
-                      style={{ width: `${(subject.average / 20) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="two-col" style={{ marginTop: 20 }}>
+        <section className="panel" aria-labelledby="bysub"><div className="panel-head"><div><h2 id="bysub">Par matière</h2><p>Moyenne actuelle de chaque matière.</p></div></div><SubjectBars results={results} height={320} /></section>
+        <section className="panel" aria-labelledby="byue"><div className="panel-head"><div><h2 id="byue">Par UE</h2><p>Moyenne pondérée par unité d’enseignement.</p></div></div>
+          <div className="chart-box" style={{ height: 320 }} role="img" aria-label={`Moyenne par UE : ${unitData.map(u => `${u.name} ${number(u.value)}`).join(', ')}`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={unitData} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
+                <CartesianGrid vertical={false} stroke="var(--line)" strokeDasharray="3 6" />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: 'var(--text-2)', fontSize: 12 }} />
+                <YAxis domain={[0, 20]} tickLine={false} axisLine={false} tick={{ fill: 'var(--text-3)', fontSize: 12 }} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--surface-2)' }} />
+                <Bar dataKey="value" radius={[10, 10, 4, 4]} name="Moyenne" barSize={46}>{unitData.map((u, i) => <Cell key={u.name} fill={['#4f46e5', '#0f9d6b', '#f2b35a', '#7cb8ff'][i % 4]} />)}</Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
       </div>
+      <div className="an-cta">
+        <Button size="lg" onClick={() => exportReport(data)}><Download size={16} />Générer le rapport analytique</Button>
+        <Link href="/goals" className="button button-secondary button-lg"><Flag size={16} />Définir un nouvel objectif de note</Link>
+      </div>
+      <p className="tiny faint" style={{ marginTop: 22 }}>Analyses indicatives, calculées à partir des notes saisies. Elles ne constituent pas des résultats officiels.</p>
     </AppLayout>
   );
 }

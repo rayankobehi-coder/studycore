@@ -1,0 +1,4 @@
+'use client';
+export function Tabs<T extends string>({ items, value, onChange, label = 'Choisir une vue' }: { items: { value: T; label: string }[]; value: T; onChange: (value: T) => void; label?: string }) {
+  return <div className="tabs" role="tablist" aria-label={label}>{items.map((item, index) => <button type="button" key={item.value} role="tab" aria-selected={value === item.value} tabIndex={value === item.value ? 0 : -1} className={value === item.value ? 'is-active' : ''} onClick={() => onChange(item.value)} onKeyDown={event => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); const next = items[(index + (event.key === 'ArrowRight' ? 1 : items.length - 1)) % items.length]; onChange(next.value); const list = event.currentTarget.parentElement; (list?.querySelector(`[data-tab="${next.value}"]`) as HTMLButtonElement)?.focus(); } }} data-tab={item.value}>{item.label}</button>)}</div>;
+}

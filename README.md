@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# STUDYCORE
 
-## Getting Started
+Plateforme académique : notes, moyennes, simulateur, crédits ECTS, parcours, planning, échéances, révisions, objectifs, analytics et ressources.
 
-First, run the development server:
+## Démarrer
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run build && npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Logo
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Place ton fichier **`public/logo.png`**. Il est utilisé dans la barre latérale, l’en-tête mobile et l’icône du site. Tant qu’il est absent, le logo STUDYCORE intégré (`public/brand-mark.svg`) est affiché automatiquement.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Mode démonstration
 
-## Learn More
+Sans configuration Supabase, l’application fonctionne en mode démonstration avec des données fictives (élève « Alex Martin », BTS Informatique). Toutes les modifications restent dans le navigateur (`localStorage`). Le bouton « Explorer la démo » est disponible sur les pages de connexion et d’accueil.
 
-To learn more about Next.js, take a look at the following resources:
+## Supabase (optionnel, comptes réels)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Copie `.env.example` en `.env.local` et renseigne `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+2. Exécute `src/database/migrations/20261009_student_workspaces.sql` dans l’éditeur SQL de Supabase. Cette table stocke l’espace de chaque étudiant, protégé par RLS (chacun ne voit que ses données).
+3. Redémarre le serveur.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+- `src/app` : pages (App Router). `proxy.ts` gère la protection des routes.
+- `src/components` : coque d’application, composants académiques, graphiques, formulaires et UI.
+- `src/lib/engine` : moteur de calcul et règles académiques (inchangé).
+- `src/lib/workspace` : données, sélecteurs (qui appellent le moteur), validation (Zod), export.
+- `src/app/globals.css` : système visuel complet (couleurs, mode clair/sombre, composants, responsive).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Les résultats affichés sont indicatifs et non officiels.

@@ -1,182 +1,97 @@
 'use client';
-
+import Link from 'next/link';
+import { Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  BookOpen,
-  Download,
-  ThumbsUp,
-  Flag,
-  Search,
-  Filter,
-  FileText,
-  Book,
-  FileSpreadsheet,
-  Video,
-  Link,
-} from 'lucide-react';
+import { PageHead } from '@/components/academic';
+import { useWorkspace } from '@/components/providers/workspace-provider';
+import { Select } from '@/components/ui/fields';
+import { EmptyState } from '@/components/ui/states';
+import { FileText, ClipboardList, BookOpen, Search, Bookmark, BookmarkCheck, ThumbsUp, ArrowRight, Filter, FileCheck2 } from 'lucide-react';
+import type { ResourceType } from '@/lib/types';
 
-const resources = [
-  {
-    id: '1',
-    title: 'Cours complet - Algorithmique',
-    type: 'PDF',
-    subject: 'Algorithmique',
-    author: 'M. Dupont',
-    downloads: 234,
-    votes: 45,
-    level: 'BTS',
-  },
-  {
-    id: '2',
-    title: 'Exercices - Base de données',
-    type: 'EXERCICE',
-    subject: 'Base de données',
-    author: 'Mme Martin',
-    downloads: 189,
-    votes: 32,
-    level: 'BTS',
-  },
-  {
-    id: '3',
-    title: 'Annales - Réseaux 2025',
-    type: 'ANNALE',
-    subject: 'Réseaux',
-    author: 'M. Bernard',
-    downloads: 156,
-    votes: 28,
-    level: 'BTS',
-  },
-  {
-    id: '4',
-    title: 'Fiche de révision - Anglais',
-    type: 'FICHE',
-    subject: 'Anglais',
-    author: 'Mme Petit',
-    downloads: 98,
-    votes: 22,
-    level: 'BTS',
-  },
-  {
-    id: '5',
-    title: 'Corrigé - Examen Algorithmique',
-    type: 'CORRIGE',
-    subject: 'Algorithmique',
-    author: 'M. Dupont',
-    downloads: 312,
-    votes: 67,
-    level: 'BTS',
-  },
-  {
-    id: '6',
-    title: 'Tutoriel vidéo - SQL',
-    type: 'VIDEO',
-    subject: 'Base de données',
-    author: 'Communauté',
-    downloads: 445,
-    votes: 89,
-    level: 'BTS',
-  },
-];
-
-const typeIcons = {
-  PDF: FileText,
-  FICHE: Book,
-  EXERCICE: FileSpreadsheet,
-  ANNALE: FileText,
-  CORRIGE: FileText,
-  VIDEO: Video,
-  LIEN: Link,
-};
-
-const typeColors = {
-  PDF: 'text-red-600 bg-red-50',
-  FICHE: 'text-green-600 bg-green-50',
-  EXERCICE: 'text-blue-600 bg-blue-50',
-  ANNALE: 'text-purple-600 bg-purple-50',
-  CORRIGE: 'text-orange-600 bg-orange-50',
-  VIDEO: 'text-rose-600 bg-rose-50',
-  LIEN: 'text-gray-600 bg-gray-50',
+const typeMeta: Record<ResourceType, { label: string; icon: typeof FileText }> = {
+  FICHE: { label: 'Fiche', icon: FileText }, ANNALE: { label: 'Annale', icon: ClipboardList }, EXERCICE: { label: 'Exercices', icon: FileCheck2 },
+  PDF: { label: 'Cours', icon: BookOpen }, CORRIGE: { label: 'Corrigé', icon: FileCheck2 }, VIDEO: { label: 'Vidéo', icon: BookOpen }, LIEN: { label: 'Lien', icon: BookOpen },
 };
 
 export default function ResourcesPage() {
+  return <Suspense fallback={null}><Resources /></Suspense>;
+}
+
+function Resources() {
+  const { data, update } = useWorkspace();
+  const searchParams = useSearchParams();
+  const fromUrl = searchParams.get('q') ?? '';
+  const [typedQuery, setTypedQuery] = useState<string | null>(null);
+  const query = typedQuery ?? fromUrl;
+  const setQuery = setTypedQuery;
+  const [subject, setSubject] = useState('all');
+  const [type, setType] = useState('all');
+  const [sort, setSort] = useState<'votes' | 'recent'>('votes');
+
+  const list = useMemo(() => data.resources
+    .filter(r => subject === 'all' || r.subjectId === subject)
+    .filter(r => type === 'all' || r.type === type)
+    .filter(r => { const q = query.trim().toLowerCase(); return !q || [r.title, r.description, r.author].some(v => v?.toLowerCase().includes(q)); })
+    .sort((a, b) => sort === 'votes' ? b.votes - a.votes : b.createdAt.localeCompare(a.createdAt)), [data.resources, subject, type, query, sort]);
+
+  function toggleList(key: 'bookmarks' | 'upvotes', id: string) {
+    update(current => {
+      const has = current[key].includes(id);
+      const nextList = has ? current[key].filter(x => x !== id) : [...current[key], id];
+      const resources = key === 'upvotes' ? current.resources.map(r => r.id === id ? { ...r, votes: r.votes + (has ? -1 : 1) } : r) : current.resources;
+      return { ...current, [key]: nextList, resources };
+    });
+  }
+
   return (
-    <AppLayout>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ressources</h1>
-          <p className="mt-1 text-gray-500">Bibliothèque de ressources pédagogiques</p>
+    <AppLayout title="Ressources">
+      <PageHead eyebrow="Bibliothèque" title="Ressources" description="Fiches, annales et exercices partagés. Cherche, filtre, consulte." />
+      <div className="panel" style={{ display: 'grid', gap: 14, padding: 18 }}>
+        <div className="search" style={{ maxWidth: 'none' }}>
+          <Search size={18} aria-hidden="true" />
+          <label htmlFor="res-search" className="sr-only">Rechercher un cours, une fiche, un sujet</label>
+          <input id="res-search" className="input" placeholder="Rechercher un cours, une fiche, un sujet..." value={query} onChange={e => setQuery(e.target.value)} />
         </div>
-        <Button>
-          <BookOpen className="h-4 w-4 mr-2" />
-          Partager une ressource
-        </Button>
-      </div>
-
-      {/* Search & Filter */}
-      <div className="mb-6 flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher une ressource..."
-            className="w-full rounded-lg border border-gray-200 py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:outline-none"
-          />
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <Filter size={16} className="muted" aria-hidden="true" />
+          <div style={{ minWidth: 200 }}><Select label="Matière" value={subject} onChange={e => setSubject(e.target.value)}><option value="all">Toutes les matières</option>{data.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></div>
+          <div style={{ minWidth: 180 }}><Select label="Type" value={type} onChange={e => setType(e.target.value)}><option value="all">Tous les types</option>{Object.entries(typeMeta).map(([v, m]) => <option key={v} value={v}>{m.label}</option>)}</Select></div>
+          <div style={{ minWidth: 180 }}><Select label="Trier par" value={sort} onChange={e => setSort(e.target.value as 'votes' | 'recent')}><option value="votes">Les mieux votées</option><option value="recent">Les plus récentes</option></Select></div>
         </div>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
-          Filtres
-        </Button>
       </div>
-
-      {/* Resources Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {resources.map((resource) => {
-          const Icon = typeIcons[resource.type as keyof typeof typeIcons];
-          const colorClass = typeColors[resource.type as keyof typeof typeColors];
-          return (
-            <Card key={resource.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`rounded-lg p-2 ${colorClass}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <Badge variant="outline">{resource.type}</Badge>
+      <p className="small muted" style={{ margin: '18px 0' }}>{list.length} ressource(s)</p>
+      {list.length === 0 ? <EmptyState title="Aucune ressource ne correspond." description="Essaie un autre mot-clé ou retire un filtre." action={<button className="button button-outline" onClick={() => { setQuery(''); setSubject('all'); setType('all'); }}>Réinitialiser les filtres</button>} /> : (
+        <div className="resource-grid">
+          {list.map(resource => {
+            const meta = typeMeta[resource.type];
+            const Icon = meta.icon;
+            const saved = data.bookmarks.includes(resource.id);
+            const voted = data.upvotes.includes(resource.id);
+            return (
+              <article key={resource.id} className="resource rise">
+                <div className="row-between">
+                  <span className="resource-icon"><Icon size={21} /></span>
+                  <button type="button" className="icon-button" aria-pressed={saved} aria-label={saved ? 'Retirer des favoris' : 'Ajouter aux favoris'} onClick={() => toggleList('bookmarks', resource.id)} style={{ color: saved ? 'var(--brand)' : undefined }}>{saved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}</button>
                 </div>
-                <h3 className="font-semibold mb-1">{resource.title}</h3>
-                <p className="text-sm text-gray-500 mb-1">
-                  {resource.subject} · {resource.level}
-                </p>
-                <p className="text-xs text-gray-400 mb-4">
-                  par {resource.author}
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Download className="h-3 w-3" />
-                      {resource.downloads}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <ThumbsUp className="h-3 w-3" />
-                      {resource.votes}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="rounded p-1 text-gray-400 hover:text-indigo-600">
-                      <ThumbsUp className="h-4 w-4" />
-                    </button>
-                    <button className="rounded p-1 text-gray-400 hover:text-red-600">
-                      <Flag className="h-4 w-4" />
-                    </button>
-                  </div>
+                <div>
+                  <span className="badge badge-brand" style={{ marginBottom: 10 }}>{meta.label}</span>
+                  <h3>{resource.title}</h3>
+                  <p className="small muted" style={{ marginTop: 6 }}>{resource.description}</p>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                <div className="resource-meta">
+                  <span>{data.subjects.find(s => s.id === resource.subjectId)?.name}</span><span>· {resource.author}</span><span>· {resource.year}</span><span>· {resource.readingMinutes} min</span>
+                </div>
+                <div className="row-between" style={{ marginTop: 'auto' }}>
+                  <button type="button" className={`button button-sm ${voted ? 'button-primary' : 'button-secondary'}`} aria-pressed={voted} onClick={() => toggleList('upvotes', resource.id)}><ThumbsUp size={14} />{resource.votes}</button>
+                  <Link href={`/resources/${resource.id}`} className="button button-outline button-sm">Consulter <ArrowRight size={14} /></Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </AppLayout>
   );
 }

@@ -1,261 +1,161 @@
 'use client';
-
+import Link from 'next/link';
+import { Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { useState } from 'react';
-import {
-  Calculator,
-  Target,
-  RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-} from 'lucide-react';
+import { Grade, StatusBadge, ChartTooltip } from '@/components/academic';
+import { useWorkspace } from '@/components/providers/workspace-provider';
+import { Select, Input } from '@/components/ui/fields';
+import { EmptyState } from '@/components/ui/states';
+import { getSubjectResults, simulateSubject } from '@/lib/workspace/selectors';
+import { formatDate, number } from '@/lib/workspace/dates';
+import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ArrowRight, Minus, Plus, RotateCcw, Target } from 'lucide-react';
 
-interface SubjectSim {
-  id: string;
-  name: string;
-  currentAverage: number;
-  coefficient: number;
-  examGrade?: number;
-  simulatedAverage?: number;
-}
-
-const initialSubjects: SubjectSim[] = [
-  { id: '1', name: 'Algorithmique', currentAverage: 11.8, coefficient: 4 },
-  { id: '2', name: 'Base de données', currentAverage: 8.5, coefficient: 3 },
-  { id: '3', name: 'Réseaux', currentAverage: 13.9, coefficient: 3 },
-  { id: '4', name: 'Anglais', currentAverage: 14.2, coefficient: 2 },
-  { id: '5', name: 'Mathématiques', currentAverage: 7.8, coefficient: 3 },
-];
+const presets = [10, 12, 14, 15];
 
 export default function SimulatorPage() {
-  const [subjects, setSubjects] = useState<SubjectSim[]>(initialSubjects);
-  const [targetGrade, setTargetGrade] = useState<number>(10);
-  const [showResults, setShowResults] = useState(false);
+  return <Suspense fallback={null}><Simulator /></Suspense>;
+}
 
-  const currentOverall =
-    subjects.reduce((sum, s) => sum + s.currentAverage * s.coefficient, 0) /
-    subjects.reduce((sum, s) => sum + s.coefficient, 0);
+function Simulator() {
+  const { data } = useWorkspace();
+  const searchParams = useSearchParams();
+  const requested = searchParams.get('subject');
+  const [chosenSubject, setChosenSubject] = useState<string | null>(null);
+  const [examGrade, setExamGrade] = useState(16);
+  const [coefficient, setCoefficient] = useState(4);
+  const [objective, setObjective] = useState(10);
 
-  const simulatedOverall = subjects.some((s) => s.simulatedAverage !== undefined)
-    ? subjects.reduce((sum, s) => sum + (s.simulatedAverage ?? s.currentAverage) * s.coefficient, 0) /
-      subjects.reduce((sum, s) => sum + s.coefficient, 0)
-    : currentOverall;
+  const validRequest = requested && data.subjects.some(s => s.id === requested) ? requested : null;
+  const subjectId = chosenSubject ?? validRequest ?? data.subjects[0]?.id ?? '';
 
-  const handleGradeChange = (id: string, grade: number) => {
-    setSubjects((prev) =>
-      prev.map((s) => {
-        if (s.id !== id) return s;
-        const simulatedAverage =
-          s.currentAverage + (grade - (s.examGrade ?? 0)) * 0.4;
-        return { ...s, examGrade: grade, simulatedAverage };
-      })
-    );
-  };
+  const subject = data.subjects.find(s => s.id === subjectId);
+  const results = useMemo(() => getSubjectResults(data, 'all'), [data]);
+  const current = results.find(r => r.subjectId === subjectId);
+  const simulation = useMemo(() => subject ? simulateSubject(data, subject, examGrade, coefficient, objective) : null, [data, subject, examGrade, coefficient, objective]);
+  const curve = useMemo(() => subject ? Array.from({ length: 8 }, (_, i) => 6 + i * 2).map(grade => ({ grade, final: simulateSubject(data, subject, grade, coefficient, objective).average })) : [], [data, subject, coefficient, objective]);
 
-  const resetSimulation = () => {
-    setSubjects(initialSubjects.map((s) => ({ ...s, examGrade: undefined, simulatedAverage: undefined })));
-    setShowResults(false);
-  };
+  if (data.subjects.length === 0) return <AppLayout title="Simulateur"><EmptyState title="Aucune matière à simuler." description="Ajoute une matière et quelques notes pour tester différents scénarios." action={<Link href="/subjects" className="button button-primary">Ajouter une matière</Link>} /></AppLayout>;
 
-  const scenarios = [];
-  for (let g = 0; g <= 20; g += 2) {
-    const sim = subjects.map((s) => ({
-      ...s,
-      simulatedAverage: s.currentAverage + (g - (s.examGrade ?? 10)) * 0.4,
-    }));
-    const avg =
-      sim.reduce((sum, s) => sum + (s.simulatedAverage ?? s.currentAverage) * s.coefficient, 0) /
-      sim.reduce((sum, s) => sum + s.coefficient, 0);
-    scenarios.push({ grade: g, average: avg });
-  }
+  const delta = current?.grades.length && simulation ? simulation.average - current.average : 0;
+  const required = simulation?.required ?? null;
+  const reachable = required !== null && required <= data.rules.gradingScale;
+  const clamp = (value: number) => Math.min(20, Math.max(0, value));
 
   return (
-    <AppLayout>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Simulateur</h1>
-          <p className="mt-1 text-gray-500">
-            Teste différents scénarios sans modifier tes vraies notes
-          </p>
-        </div>
-        <Button variant="outline" onClick={resetSimulation}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Réinitialiser
-        </Button>
-      </div>
+    <AppLayout title="Simulateur">
+      <div className="sim">
+        <header className="nm-head">
+          <div style={{ minWidth: 0 }}>
+            <h1>Simulateur</h1>
+            <p>Teste différents scénarios sans modifier tes vraies notes.</p>
+          </div>
+          <span className="badge badge-brand">Mode simulation</span>
+        </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Simulation Controls */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-indigo-600" />
-                Simulation &quot;What If&quot;
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {subjects.map((subject) => (
-                <div key={subject.id} className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="font-medium">{subject.name}</p>
-                      <p className="text-sm text-gray-500">
-                        Actuel : {subject.currentAverage.toFixed(1)} · Coeff {subject.coefficient}
-                      </p>
-                    </div>
-                    {subject.simulatedAverage !== undefined && (
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">Simulé</p>
-                        <p className="text-lg font-bold text-indigo-600">
-                          {subject.simulatedAverage.toFixed(2)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <label className="text-sm text-gray-500 min-w-20">
-                      Note examen :
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="20"
-                      step="0.5"
-                      value={subject.examGrade ?? subject.currentAverage}
-                      onChange={(e) => handleGradeChange(subject.id, parseFloat(e.target.value))}
-                      className="flex-1 h-2 rounded-full bg-gray-200 accent-indigo-600"
-                    />
-                    <span className="text-sm font-semibold min-w-12 text-right">
-                      {subject.examGrade ?? '—'}/20
-                    </span>
-                  </div>
+        <nav className="sim-tabs" aria-label="Type de simulation">
+          <span className="sim-tab is-active" aria-current="page">Par matière</span>
+          <Link href="/simulator/semester" className="sim-tab">Objectif semestre</Link>
+        </nav>
+
+        <section className="sim-card" aria-label="Matière ciblée">
+          <div className="nm-card-top">
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <span className="dash-kicker">Matière ciblée</span>
+              <div style={{ marginTop: 6 }}>
+                <Select label="Matière" value={subjectId} onChange={e => setChosenSubject(e.target.value)}>{data.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>
+              </div>
+            </div>
+            <span className="as-coeff">Coeff {subject?.coefficient}</span>
+          </div>
+          <div className="row-between" style={{ marginTop: 10 }}>
+            <span className="small muted">Moyenne actuelle enregistrée</span>
+            {current?.grades.length ? <Grade value={current.average} size="sm" /> : <span className="muted small">Pas encore de note</span>}
+          </div>
+          {current && <div className="row" style={{ gap: 8, marginTop: 8 }}><StatusBadge status={current.status} /><span className="small muted">{current.credits} crédits</span></div>}
+          <div className="sim-list">
+            {data.assessments.filter(a => a.subjectId === subjectId).map(a => {
+              const g = data.grades.find(x => x.assessmentId === a.id);
+              return (
+                <div key={a.id} className="sim-list-row">
+                  <span style={{ minWidth: 0 }}>{a.name}<span className="tiny muted" style={{ display: 'block' }}>{formatDate(a.date)} · coeff. {a.coefficient}</span></span>
+                  <strong className="num">{g ? `${number(g.value)}/${g.scale}` : '—'}</strong>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              );
+            })}
+          </div>
+          <Link href={`/subjects/${subjectId}`} className="text-link small" style={{ marginTop: 12 }}>Ouvrir la matière <ArrowRight size={14} /></Link>
+        </section>
 
-          {/* Scenarios Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-indigo-600" />
-                Scénarios
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-hidden rounded-lg border">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Note examen</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Moyenne finale</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Impact</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
-                    {scenarios.map((scenario) => {
-                      const diff = scenario.average - currentOverall;
-                      const ImpactIcon = diff > 0 ? TrendingUp : diff < 0 ? TrendingDown : Minus;
-                      const impactColor = diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-gray-400';
-                      return (
-                        <tr key={scenario.grade}>
-                          <td className="px-4 py-3 text-sm font-medium">{scenario.grade}/20</td>
-                          <td className="px-4 py-3 text-sm font-semibold">{scenario.average.toFixed(2)}</td>
-                          <td className={`px-4 py-3 text-sm ${impactColor}`}>
-                            <ImpactIcon className="h-4 w-4 inline mr-1" />
-                            {diff > 0 ? '+' : ''}{diff.toFixed(2)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <section className="sim-card" aria-labelledby="sim-title">
+          <div className="nm-card-top">
+            <div><span className="dash-kicker">Simulation en direct</span><h2 id="sim-title" style={{ marginTop: 6 }}>Examen final</h2></div>
+            <span className="badge badge-outline">Pondération {coefficient}</span>
+          </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Current vs Simulated */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-indigo-600" />
-                Résultats
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Moyenne actuelle</p>
-                <p className="text-2xl font-bold">{currentOverall.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Moyenne simulée</p>
-                <p className="text-2xl font-bold text-indigo-600">
-                  {simulatedOverall.toFixed(2)}
-                </p>
-              </div>
-              <div className="rounded-lg bg-indigo-50 p-4">
-                <p className="text-sm text-indigo-700">
-                  {simulatedOverall >= currentOverall
-                    ? `Tu gagnerais ${(simulatedOverall - currentOverall).toFixed(2)} points !`
-                    : `Tu perdrais ${(currentOverall - simulatedOverall).toFixed(2)} points.`}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="sim-hero">
+            <span className="small muted">Note d’épreuve projetée</span>
+            <strong className="num">{number(examGrade)}<small> / 20</small></strong>
+            <div className="sim-stepper">
+              <button type="button" className="icon-button" aria-label="Diminuer la note" onClick={() => setExamGrade(v => clamp(v - 0.5))}><Minus size={16} /></button>
+              <input type="range" min="0" max="20" step="0.25" value={examGrade} aria-label="Note à l’examen" onChange={e => setExamGrade(Number(e.target.value))} style={{ flex: 1, accentColor: 'var(--brand)' }} />
+              <button type="button" className="icon-button" aria-label="Augmenter la note" onClick={() => setExamGrade(v => clamp(v + 0.5))}><Plus size={16} /></button>
+            </div>
+          </div>
 
-          {/* Goal Calculator */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-indigo-600" />
-                Combien me faut-il ?
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700">Objectif</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="number"
-                    min="0"
-                    max="20"
-                    step="0.5"
-                    value={targetGrade}
-                    onChange={(e) => setTargetGrade(parseFloat(e.target.value))}
-                    className="w-20 rounded-lg border px-3 py-2 text-center text-lg font-bold"
-                  />
-                  <span className="text-gray-500">/20</span>
-                </div>
-              </div>
-              <Button className="w-full" onClick={() => setShowResults(true)}>
-                Calculer
-              </Button>
-              {showResults && (
-                <div className="rounded-lg bg-green-50 border border-green-200 p-4">
-                  <p className="text-sm text-green-700 font-medium">
-                    🎯 Tu dois obtenir au minimum :
-                  </p>
-                  <p className="text-2xl font-bold text-green-600 mt-1">
-                    {((targetGrade * 1.5 - currentOverall * 0.6) / 0.4).toFixed(2)}
-                    <span className="text-sm">/20</span>
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">
-                    à l&apos;examen pour atteindre {targetGrade}/20
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+          <div className="form-grid">
+            <Input label="Note à l’examen (0 à 20)" type="number" min="0" max="20" step="0.25" value={examGrade} onChange={e => setExamGrade(clamp(Number(e.target.value) || 0))} />
+            <Select label="Coefficient de l’examen" value={String(coefficient)} onChange={e => setCoefficient(Number(e.target.value))}>
+              {[1, 2, 3, 4, 5, 6].map(c => <option key={c} value={c}>{c}</option>)}
+            </Select>
+          </div>
+
+          {simulation && (
+            <div className="sim-results">
+              <div><span className="tiny muted">Moyenne matière</span><strong className="num">{number(simulation.average)}<small> / 20</small></strong>{current?.grades.length ? <span className={`delta ${delta < 0 ? 'down' : ''}`}>{delta >= 0 ? '+' : ''}{number(delta)} pts</span> : null}</div>
+              <div><span className="tiny muted">Note visée</span><strong className="num">{number(objective)}<small> / 20</small></strong><span className="tiny muted">seuil de validation {number(data.rules.passingGrade)}</span></div>
+            </div>
+          )}
+
+          <div>
+            <div className="row-between" style={{ marginBottom: 6 }}><h3>Projection de la moyenne finale</h3><span className="tiny muted">seuil {number(data.rules.passingGrade)}/20</span></div>
+            <div className="chart-box" style={{ height: 220 }} role="img" aria-label={`Courbe : ${curve.map(p => `${p.grade} donne ${number(p.final)}`).join(', ')}`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={curve} margin={{ top: 14, right: 16, bottom: 0, left: -16 }}>
+                  <defs><linearGradient id="sim" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#4f46e5" stopOpacity={0.25} /><stop offset="100%" stopColor="#4f46e5" stopOpacity={0} /></linearGradient></defs>
+                  <CartesianGrid vertical={false} stroke="var(--line)" strokeDasharray="3 6" />
+                  <XAxis dataKey="grade" ticks={[6, 8, 10, 12, 14, 16, 18, 20]} tickLine={false} axisLine={false} tick={{ fill: 'var(--text-3)', fontSize: 12 }} />
+                  <YAxis domain={[0, 20]} tickLine={false} axisLine={false} tick={{ fill: 'var(--text-3)', fontSize: 12 }} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area type="monotone" dataKey="final" name="Moyenne finale" stroke="#4f46e5" strokeWidth={2.6} fill="url(#sim)" />
+                  {simulation && <ReferenceDot x={examGrade} y={simulation.average} r={6} fill="#4f46e5" stroke="#fff" strokeWidth={2} />}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </section>
+
+        <section className="sim-card" aria-labelledby="calc-title">
+          <div className="nm-card-top">
+            <div><span className="dash-kicker">Calculateur d’objectif</span><h2 id="calc-title" style={{ marginTop: 6 }}>Combien me faut-il ?</h2></div>
+          </div>
+          <div className="sim-presets" role="group" aria-label="Objectifs rapides">
+            {presets.map(value => <button type="button" key={value} className={`sim-preset ${objective === value ? 'is-active' : ''}`} aria-pressed={objective === value} onClick={() => setObjective(value)}>{value}/20</button>)}
+          </div>
+          <Input label="Objectif sur la matière" type="number" min="0" max="20" step="0.5" value={objective} onChange={e => setObjective(clamp(Number(e.target.value) || 0))} />
+          <div className="sim-required">
+            <span className="small muted">Pour atteindre {number(objective)} / 20</span>
+            <p>{required === null ? 'Ajoute une évaluation pour estimer la note nécessaire.' : reachable ? <>Note minimale requise : <strong className="num">{number(required)} / 20</strong></> : <>Objectif hors d’atteinte avec cette évaluation (il faudrait {number(required)} / 20).</>}</p>
+            <span className="tiny muted">Estimation indicative, une seule évaluation de coefficient {coefficient} reste à venir.</span>
+          </div>
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" className="button button-ghost button-sm" onClick={() => { setExamGrade(16); setCoefficient(4); setObjective(10); }}><RotateCcw size={15} />Réinitialiser les valeurs</button>
+            <Link href="/simulator/semester" className="button button-secondary button-sm"><Target size={15} />Objectif semestre</Link>
+          </div>
+        </section>
+
+        <p className="tiny faint">Mode simulation : rien n’est enregistré. Les résultats ne sont pas officiels.</p>
       </div>
     </AppLayout>
   );
