@@ -1,50 +1,80 @@
 'use client';
-
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Badge } from '@/components/ui/badge';
+import { StatCard, EvolutionChart, SubjectBars, DistributionChart, Grade } from '@/components/academic';
+import { useWorkspace } from '@/components/providers/workspace-provider';
+import { EmptyState } from '@/components/ui/states';
+import { getEngine, getEvolution, getSubjectResults, getSummary } from '@/lib/workspace/selectors';
+import { number } from '@/lib/workspace/dates';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ChartTooltip } from '@/components/academic';
+import { BarChart3, Download, Flag, Trophy, TrendingDown, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { exportReport } from '@/lib/workspace/export';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, Award, Download, Flag, Lightbulb, Sparkles, TrendingUp } from 'lucide-react';
 
-const performance = [
-  { name: 'Anglais Professionnel', value: 16.4, color: 'green' },
-  { name: 'Développement Web & APIs', value: 15.1, color: 'green' },
-  { name: 'Algorithmique Avancée', value: 14.2, color: 'green' },
-  { name: 'Architecture Réseaux', value: 13.8, color: 'green' },
-  { name: 'Bases de Données Relationnelles', value: 8.7, color: 'blue' },
-  { name: 'Mathématiques Discrètes', value: 7.9, color: 'red' },
-];
 export default function AnalyticsPage() {
-  const [period, setPeriod] = useState('Semestre 2');
+  const { data } = useWorkspace();
+  const summary = useMemo(() => getSummary(data), [data]);
+  const results = useMemo(() => getSubjectResults(data).filter(r => r.grades.length), [data]);
+  const evolution = useMemo(() => getEvolution(data), [data]);
+  const best = [...results].sort((a, b) => b.average - a.average)[0];
+  const weakest = [...results].sort((a, b) => a.average - b.average)[0];
+  const delta = data.previousAverage === null ? 0 : summary.average - data.previousAverage;
+  const unitData = useMemo(() => {
+    const engine = getEngine(data);
+    const map = new Map<string, { name: string; items: { value: number; weight: number }[] }>();
+    results.forEach(r => {
+      const unitId = data.subjects.find(s => s.id === r.subjectId)?.unitId ?? 'autre';
+      const label = { informatique: 'Informatique', langues: 'Langues', sciences: 'Sciences', professionnel: 'Pro & gestion' }[unitId] ?? 'Autres';
+      const bucket = map.get(unitId) ?? { name: label, items: [] };
+      bucket.items.push({ value: r.average, weight: r.coefficient });
+      map.set(unitId, bucket);
+    });
+    return [...map.values()].map(b => ({ name: b.name, value: engine.weightedAverage(b.items) }));
+  }, [data, results]);
+
+  if (!summary.hasGrades) return <AppLayout title="Analytics"><EmptyState title="Pas encore assez de données." description="Ajoute tes premières notes : les analyses se dessinent dès la première évaluation." /></AppLayout>;
+
   return (
-    <AppLayout>
-      <div className="screen-heading">
-        <div><Badge variant="info">● Promotion L3 Informatique</Badge><h1>Mes Performances</h1><p>Analyse statistique de tes résultats et tendances académiques.</p></div>
-        <span className="data-updated"><TrendingUp size={13} /> Mis à jour hier</span>
+    <AppLayout title="Analytics">
+      <header className="nm-head" style={{ marginBottom: 18 }}>
+        <div style={{ minWidth: 0 }}>
+          <h1>Mes performances</h1>
+          <p>Analyse statistique de tes résultats et tendances académiques. Indicatif, non officiel.</p>
+        </div>
+      </header>
+      <section className="stats-grid" aria-label="Indicateurs">
+        <StatCard label="Moyenne générale" icon={<BarChart3 size={16} />} value={<span className="num">{number(summary.average)}</span>} unit="/20" />
+        <StatCard label="Évolution" tone={delta < 0 ? 'danger' : 'ok'} icon={delta < 0 ? <TrendingDown size={16} /> : <TrendingUp size={16} />} value={<span className="num">{delta >= 0 ? '+' : ''}{number(delta)}</span>} foot={<>depuis le dernier semestre</>} />
+        <StatCard label="Meilleure matière" tone="ok" icon={<Trophy size={16} />} value={<span className="num" style={{ fontSize: '1.45rem' }}>{best?.subjectName}</span>} foot={<>{best && <Grade value={best.average} size="sm" />}</>} />
+        <StatCard label="Matière la plus faible" tone="warn" value={<span className="num" style={{ fontSize: '1.45rem' }}>{weakest?.subjectName}</span>} foot={<>{weakest && <Grade value={weakest.average} size="sm" />}</>} />
+      </section>
+      <div className="two-col" style={{ marginTop: 20 }}>
+        <section className="panel" aria-labelledby="ev"><div className="panel-head"><div><h2 id="ev">Graphique d’évolution</h2><p>Moyenne cumulée selon les dates d’évaluation.</p></div></div><EvolutionChart points={evolution.map(p => ({ label: p.label, value: p.value }))} target={data.goals.find(g => g.id === 'goal-average')?.targetValue} height={280} /></section>
+        <section className="panel" aria-labelledby="dist"><div className="panel-head"><div><h2 id="dist">Répartition des résultats</h2><p>Matières par statut.</p></div></div><DistributionChart results={summary.results} /></section>
       </div>
-      <div className="segmented-tabs analytics-tabs">{['Semestre 1', 'Semestre 2', 'Global 26-27'].map((item) => <button type="button" key={item} className={period === item ? 'selected' : ''} onClick={() => setPeriod(item)}>{item}</button>)}</div>
-      <section className="analytics-summary">
-        <article><span>MOYENNE</span><strong>14.27<small> /20</small></strong><p className="up-text"><ArrowUpRight size={14} /> +1.12 pts vs S1</p></article>
-        <article><span>RANG PROMO</span><strong>5<small>e / 36</small></strong><Badge variant="info">Top 14% de promo</Badge></article>
-        <article className="strength"><span>ATOUT MAJEUR <Award size={14} /></span><strong>Anglais Pro</strong><p>16.40 <small>/20</small></p><Badge variant="success">Mention Très Bien</Badge></article>
-        <article className="weakness"><span>EN TENSION <span>!</span></span><strong>Mathématiques</strong><p>7.90 <small>/20</small></p><Badge variant="danger">Seuil de vigilance</Badge></article>
-      </section>
-      <section className="analytics-panel">
-        <div className="section-heading"><div><h2>Trajectoire Semestrielle</h2><p>Progression continue de 13.4 à 14.27</p></div><Badge variant="info">● S2 Actuel</Badge></div>
-        <div className="analytics-chart"><svg viewBox="0 0 360 140" preserveAspectRatio="none"><defs><linearGradient id="analytics-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4f41ee" stopOpacity=".2" /><stop offset="100%" stopColor="#4f41ee" stopOpacity="0" /></linearGradient></defs><path d="M18 97 C70 92 86 85 119 82 S168 72 205 69 S256 59 294 53 S328 46 345 40 L345 124 L18 124Z" fill="url(#analytics-area)" /><path d="M18 97 C70 92 86 85 119 82 S168 72 205 69 S256 59 294 53 S328 46 345 40" fill="none" stroke="#4838ef" strokeWidth="3" />{[[18,97],[119,82],[205,69],[294,53],[345,40]].map(([x,y]) => <circle key={x} cx={x} cy={y} r="4.5" fill="white" stroke="#4838ef" strokeWidth="2.5" />)}<line x1="12" x2="346" y1="111" y2="111" stroke="#f5b7bb" strokeDasharray="3 4" /></svg><div className="analytics-chart-labels"><span>Oct (13.4)</span><span>Nov</span><span>Déc</span><span>Jan</span><span>Fév (14.27)</span></div></div>
-      </section>
-      <section className="analytics-panel dispersion">
-        <div className="section-heading"><div><h2>Dispersion par Discipline</h2><p>Répartition des moyennes &amp; niveaux d&apos;acquisition</p></div><Badge variant="outline">6 cours</Badge></div>
-        <div className="performance-bars">{performance.map((item) => <div className="performance-row" key={item.name}><div><span className={`performance-dot ${item.color}`} /><span>{item.name}</span><strong className={`score-${item.color}`}>{item.value.toFixed(1)} / 20</strong></div><div className="subject-progress"><span className={item.color === 'green' ? 'validated' : item.color === 'blue' ? 'watch' : 'risk'} style={{ width: `${item.value * 5}%` }} /></div></div>)}</div>
-      </section>
-      <section className="diagnostic-panel">
-        <h2><Sparkles size={16} /> Diagnostic &amp; Régularité</h2>
-        <div className="diagnostic-grid"><article><span>Écart-type</span><strong>2.45 <small>pts</small></strong><p>Profil polarisé : excellence en pratique tech.</p></article><article><span>Compensation</span><strong className="score-green">98%</strong><p>L&apos;avance en info compense les maths.</p></article></div>
-        <div className="leverage-tip"><Lightbulb size={17} /><p><strong>Fort effet de levier identifié</strong><br />Base de données (Coeff 3) possède le plus fort potentiel : viser 12.0/20 à l&apos;examen final génèrera +0.34 pts.</p></div>
-      </section>
-      <section className="analytics-panel promo-panel"><div className="section-heading"><h2>Comparatif Promotion</h2><Badge variant="success">Avance nette</Badge></div><div className="promo-compare"><div><span>Ta moyenne</span><strong>14.27</strong></div><div><span className="score-green">+2.17 pts</span><small>—</small></div><div><span>Moyenne Promo</span><strong>12.10</strong></div></div><div className="validation-probability"><span><strong>96%</strong></span><div><strong>Validation Sans Rattrapage</strong><p>Probabilité statistique très élevée d&apos;obtenir ton année dès la première session.</p></div></div></section>
-      <Button className="w-full analytics-download"><Download size={15} className="mr-2" />Générer le rapport analytique semestriel</Button>
-      <Button variant="secondary" className="mt-2 w-full"><Flag size={15} className="mr-2" />Définir un nouvel objectif de note</Button>
+      <div className="two-col" style={{ marginTop: 20 }}>
+        <section className="panel" aria-labelledby="bysub"><div className="panel-head"><div><h2 id="bysub">Par matière</h2><p>Moyenne actuelle de chaque matière.</p></div></div><SubjectBars results={results} height={320} /></section>
+        <section className="panel" aria-labelledby="byue"><div className="panel-head"><div><h2 id="byue">Par UE</h2><p>Moyenne pondérée par unité d’enseignement.</p></div></div>
+          <div className="chart-box" style={{ height: 320 }} role="img" aria-label={`Moyenne par UE : ${unitData.map(u => `${u.name} ${number(u.value)}`).join(', ')}`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={unitData} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
+                <CartesianGrid vertical={false} stroke="var(--line)" strokeDasharray="3 6" />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: 'var(--text-2)', fontSize: 12 }} />
+                <YAxis domain={[0, 20]} tickLine={false} axisLine={false} tick={{ fill: 'var(--text-3)', fontSize: 12 }} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--surface-2)' }} />
+                <Bar dataKey="value" radius={[10, 10, 4, 4]} name="Moyenne" barSize={46}>{unitData.map((u, i) => <Cell key={u.name} fill={['#4f46e5', '#0f9d6b', '#f2b35a', '#7cb8ff'][i % 4]} />)}</Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
+      <div className="an-cta">
+        <Button size="lg" onClick={() => exportReport(data)}><Download size={16} />Générer le rapport analytique</Button>
+        <Link href="/goals" className="button button-secondary button-lg"><Flag size={16} />Définir un nouvel objectif de note</Link>
+      </div>
+      <p className="tiny faint" style={{ marginTop: 22 }}>Analyses indicatives, calculées à partir des notes saisies. Elles ne constituent pas des résultats officiels.</p>
     </AppLayout>
   );
 }

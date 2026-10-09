@@ -1,287 +1,147 @@
 'use client';
-
-import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { useState } from 'react';
-import {
-  Sparkles,
-  GraduationCap,
-  School,
-  Target,
-  ChevronRight,
-  ChevronLeft,
-  Check,
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ArrowRight, Check, GraduationCap, School, BookOpen, Target, Sparkles, Users, Backpack } from 'lucide-react';
+import { useWorkspace } from '@/components/providers/workspace-provider';
+import { Button } from '@/components/ui/button';
+import { Brand } from '@/components/brand/brand';
+import { AcademicRuleSet } from '@/lib/engine/AcademicRuleSet';
+import type { FormationType } from '@/lib/types';
 
-const steps = [
-  { id: 'welcome', title: 'Bienvenue' },
-  { id: 'profile', title: 'Profil' },
-  { id: 'level', title: 'Niveau' },
-  { id: 'institution', title: 'Établissement' },
-  { id: 'goal', title: 'Objectif' },
-  { id: 'done', title: 'Terminé' },
+const who = [
+  { id: 'COLLEGE', label: 'Collégien', icon: Backpack, hint: 'Brevet, collège' },
+  { id: 'LYCEE_GENERAL', label: 'Lycéen', icon: BookOpen, hint: 'Lycée, baccalauréat' },
+  { id: 'BTS', label: 'Étudiant BTS', icon: GraduationCap, hint: 'Brevet de technicien supérieur' },
+  { id: 'LICENCE', label: 'Étudiant universitaire', icon: School, hint: 'Licence, master' },
+  { id: 'AUTRE', label: 'Autre', icon: Users, hint: 'Formation professionnelle, autre' },
+] as const;
+const years = ['1re année', '2e année', '3e année', 'Année de mise à niveau', 'Autre'];
+const goals = [
+  { value: 14, label: 'Je veux atteindre 14/20', text: 'Une moyenne solide, sans stress.' },
+  { value: 12, label: 'Je veux être au-dessus de 12/20', text: 'Progresser régulièrement.' },
+  { value: 10, label: 'Valider mon semestre', text: 'Atteindre le seuil de validation.' },
 ];
-
-const formationTypes = [
-  { id: 'COLLEGE', label: 'Collège', emoji: '🏫' },
-  { id: 'LYCEE_GENERAL', label: 'Lycée général', emoji: '🎓' },
-  { id: 'LYCEE_TECHNO', label: 'Lycée technologique', emoji: '🔧' },
-  { id: 'LYCEE_PRO', label: 'Lycée professionnel', emoji: '🛠️' },
-  { id: 'BTS', label: 'BTS', emoji: '📚' },
-  { id: 'LICENCE', label: 'Licence', emoji: '🎓' },
-  { id: 'MASTER', label: 'Master', emoji: '🎓' },
-  { id: 'FORMATION_PRO', label: 'Formation professionnelle', emoji: '💼' },
-  { id: 'AUTRE', label: 'Autre', emoji: '📖' },
-];
+const steps = ['Bienvenue', 'Qui es-tu ?', 'Établissement', 'Formation', 'Année', 'Objectif'];
 
 export default function OnboardingPage() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    formationType: '',
-    institution: '',
-    goal: '',
-  });
+  const router = useRouter();
+  const { data, update } = useWorkspace();
+  const [step, setStep] = useState(0);
+  const [type, setType] = useState<FormationType>(data.profile.formationType);
+  const [institution, setInstitution] = useState(data.profile.institution);
+  const [formation, setFormation] = useState(data.profile.formation);
+  const [year, setYear] = useState(data.profile.className || years[0]);
+  const [goal, setGoal] = useState(14);
+  const [firstName, setFirstName] = useState(data.profile.firstName);
+  const [lastName, setLastName] = useState(data.profile.lastName);
+  const [error, setError] = useState('');
+  const progress = ((step + 1) / steps.length) * 100;
 
-  const progress = ((currentStep + 1) / steps.length) * 100;
+  function next() {
+    if (step === 0) { setStep(1); return; }
+    if (step === 1 && !type) { setError('Choisis ce qui te décrit le mieux.'); return; }
+    if (step === 3 && formation.trim().length < 2) { setError('Indique ta formation, par exemple « BTS Informatique ».'); return; }
+    setError('');
+    if (step < steps.length - 1) { setStep(step + 1); return; }
+    finish();
+  }
 
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
+  function finish() {
+    update(current => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        firstName: firstName.trim() || current.profile.firstName,
+        lastName: lastName.trim() || current.profile.lastName,
+        formationType: type,
+        institution: institution.trim() || current.profile.institution,
+        formation: formation.trim() || current.profile.formation,
+        className: year,
+        onboardingCompleted: true,
+      },
+      rules: AcademicRuleSet.fromFormationType(type).getConfig(),
+      goals: current.goals.map(g => g.id === 'goal-average' ? { ...g, targetValue: goal, title: `Atteindre ${goal} de moyenne`, updatedAt: new Date().toISOString() } : g),
+    }), 'Ton espace est prêt. Bienvenue !');
+    router.push('/dashboard');
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-            <Sparkles className="h-8 w-8 text-indigo-600" />
+    <div className="public-page" style={{ minHeight: '100vh' }}>
+      <header className="public-nav"><Brand href="/" /><span className="small muted">Étape {step + 1} sur {steps.length}</span></header>
+      <div className="wizard">
+        <div className="stepper" aria-hidden="true" style={{ marginBottom: 14 }}>{steps.map((s, i) => <span key={s} className={`stepper-dot ${i <= step ? 'is-done' : ''}`} />)}</div>
+        <div className="row-between" style={{ marginBottom: 22 }}>
+          <span className="badge badge-brand">{steps[step]}</span>
+          <div className="progress" style={{ width: 160 }} role="progressbar" aria-label="Progression de l’onboarding" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progress}%` }} /></div>
+        </div>
+        <section className="wizard-card rise" key={step} aria-live="polite">
+          {step === 0 && (
+            <div className="stack" style={{ gap: 18 }}>
+              <div className="empty-symbol" style={{ width: 64, height: 64 }}><Sparkles size={30} /></div>
+              <h1>Bienvenue sur STUDYCORE</h1>
+              <p className="muted">Ton centre de contrôle académique. Configurons ton espace en moins d’une minute : profil, formation et objectif.</p>
+              <div className="form-grid" style={{ gap: 12, marginTop: 6 }}>
+                <div className="field"><label htmlFor="fn">Prénom</label><input id="fn" className="input" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Alex" /></div>
+                <div className="field"><label htmlFor="ln">Nom</label><input id="ln" className="input" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Martin" /></div>
+              </div>
+            </div>
+          )}
+          {step === 1 && (
+            <fieldset className="stack" style={{ gap: 16, border: 0, padding: 0, margin: 0 }}>
+              <legend><h1 style={{ fontSize: '1.7rem' }}>Qui es-tu ?</h1></legend>
+              <div className="choice-grid" role="radiogroup" aria-label="Ton niveau">
+                {who.map(item => {
+                  const Icon = item.icon;
+                  const active = type === item.id;
+                  return (
+                    <button type="button" key={item.id} role="radio" aria-checked={active} className="choice" onClick={() => setType(item.id)}>
+                      <Icon size={20} className="muted" />
+                      <span>{item.label}<small>{item.hint}</small></span>
+                      <span className="choice-mark">{active && <Check size={13} />}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+          {step === 2 && (
+            <div className="stack" style={{ gap: 16 }}>
+              <h1 style={{ fontSize: '1.7rem' }}>Ton établissement</h1>
+              <p className="muted">Ce nom apparaît sur ton profil. Tu peux le modifier à tout moment.</p>
+              <div className="field"><label htmlFor="inst">Établissement</label><input id="inst" className="input" value={institution} onChange={e => setInstitution(e.target.value)} placeholder="Ex. Lycée Jean Moulin" /></div>
+            </div>
+          )}
+          {step === 3 && (
+            <div className="stack" style={{ gap: 16 }}>
+              <h1 style={{ fontSize: '1.7rem' }}>Ta formation</h1>
+              <p className="muted">Ta formation détermine les règles de calcul appliquées à tes moyennes.</p>
+              <div className="field"><label htmlFor="form">Intitulé</label><input id="form" className="input" value={formation} onChange={e => setFormation(e.target.value)} placeholder="BTS Informatique de gestion" aria-invalid={Boolean(error)} /></div>
+            </div>
+          )}
+          {step === 4 && (
+            <fieldset className="stack" style={{ gap: 16, border: 0, padding: 0, margin: 0 }}>
+              <legend><h1 style={{ fontSize: '1.7rem' }}>Ton année</h1></legend>
+              <div className="choice-grid">
+                {years.map(item => <button type="button" key={item} className="choice" aria-pressed={year === item} onClick={() => setYear(item)}><span>{item}</span><span className="choice-mark">{year === item && <Check size={13} />}</span></button>)}
+              </div>
+            </fieldset>
+          )}
+          {step === 5 && (
+            <fieldset className="stack" style={{ gap: 16, border: 0, padding: 0, margin: 0 }}>
+              <legend><h1 style={{ fontSize: '1.7rem' }}>Ton objectif</h1></legend>
+              <div className="stack" style={{ gap: 10 }}>
+                {goals.map(item => <button type="button" key={item.value} className="choice" style={{ minHeight: 76 }} aria-pressed={goal === item.value} onClick={() => setGoal(item.value)}><Target size={20} className="muted" /><span>{item.label}<small>{item.text}</small></span><span className="choice-mark">{goal === item.value && <Check size={13} />}</span></button>)}
+              </div>
+              <p className="small muted">Tu pourras ajouter d’autres objectifs depuis la page Objectifs.</p>
+            </fieldset>
+          )}
+          {error && <div className="alert alert-danger" role="alert" style={{ marginTop: 18 }}>{error}</div>}
+          <div className="dialog-actions" style={{ justifyContent: 'space-between', marginTop: 30 }}>
+            <Button variant="ghost" disabled={step === 0} onClick={() => setStep(s => Math.max(0, s - 1))}><ArrowLeft size={16} />Retour</Button>
+            <Button onClick={next}>{step === steps.length - 1 ? 'Terminer' : 'Continuer'}<ArrowRight size={16} /></Button>
           </div>
-          <CardTitle className="text-2xl">Bienvenue sur STUDYCORE</CardTitle>
-          <p className="text-gray-500 mt-2">
-            Configurons ton profil académique en quelques étapes
-          </p>
-          <div className="mt-6">
-            <Progress value={progress} />
-            <p className="text-sm text-gray-500 mt-2">
-              Étape {currentStep + 1} sur {steps.length}
-            </p>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Step indicators */}
-          <div className="mb-8 flex justify-center gap-2">
-            {steps.map((step, i) => (
-              <div
-                key={step.id}
-                className={`flex items-center justify-center rounded-full w-8 h-8 text-xs font-medium transition-all ${
-                  i <= currentStep
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-400'
-                }`}
-              >
-                {i < currentStep ? <Check className="h-4 w-4" /> : i + 1}
-              </div>
-            ))}
-          </div>
-
-          {/* Step content */}
-          {currentStep === 0 && (
-            <div className="text-center space-y-6">
-              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-indigo-50">
-                <GraduationCap className="h-12 w-12 text-indigo-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">
-                  Prêt à gérer ton parcours académique ?
-                </h2>
-                <p className="text-gray-500 mt-2">
-                  STUDYCORE t&apos;aide à suivre tes notes, calculer tes moyennes,
-                  simuler tes résultats et organiser tes révisions.
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-lg border p-4">
-                  <p className="text-2xl mb-1">📊</p>
-                  <p className="text-sm font-medium">Notes & Moyennes</p>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <p className="text-2xl mb-1">🎯</p>
-                  <p className="text-sm font-medium">Simulateur</p>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <p className="text-2xl mb-1">🧠</p>
-                  <p className="text-sm font-medium">Révisions</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">Qui es-tu ?</h2>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prénom
-                </label>
-                <input
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, firstName: e.target.value })
-                  }
-                  placeholder="Ton prénom"
-                  className="w-full rounded-lg border px-4 py-2.5 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom
-                </label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, lastName: e.target.value })
-                  }
-                  placeholder="Ton nom"
-                  className="w-full rounded-lg border px-4 py-2.5 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {currentStep === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">Ton niveau d&apos;études</h2>
-              <p className="text-sm text-gray-500">
-                Choisis le type de formation que tu suis actuellement.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {formationTypes.map((ft) => (
-                  <button
-                    key={ft.id}
-                    onClick={() =>
-                      setFormData({ ...formData, formationType: ft.id })
-                    }
-                    className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-all ${
-                      formData.formationType === ft.id
-                        ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
-                        : 'hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="text-2xl">{ft.emoji}</span>
-                    <span className="font-medium">{ft.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">Ton établissement</h2>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom de l&apos;établissement
-                </label>
-                <input
-                  type="text"
-                  value={formData.institution}
-                  onChange={(e) =>
-                    setFormData({ ...formData, institution: e.target.value })
-                  }
-                  placeholder="Ex: Lycée Technique, Université..."
-                  className="w-full rounded-lg border px-4 py-2.5 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {currentStep === 4 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold">Ton objectif académique</h2>
-              <p className="text-sm text-gray-500">
-                Quel est ton objectif principal pour cette année ?
-              </p>
-              <div>
-                <input
-                  type="text"
-                  value={formData.goal}
-                  onChange={(e) =>
-                    setFormData({ ...formData, goal: e.target.value })
-                  }
-                  placeholder="Ex: Obtenir 14/20, valider mon BTS..."
-                  className="w-full rounded-lg border px-4 py-2.5 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {currentStep === 5 && (
-            <div className="text-center space-y-6">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-                <Check className="h-10 w-10 text-green-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Configuration terminée !</h2>
-                <p className="text-gray-500 mt-2">
-                  Ton profil est prêt. Tu peux maintenant explorer STUDYCORE.
-                </p>
-              </div>
-              <div className="rounded-lg bg-indigo-50 p-4">
-                <p className="text-sm text-indigo-700">
-                  🎯 Objectif : {formData.goal || 'Non défini'}
-                </p>
-                <p className="text-sm text-indigo-700">
-                  🏫 {formData.institution || 'Établissement non défini'}
-                </p>
-                <p className="text-sm text-indigo-700">
-                  📚{' '}
-                  {formationTypes.find((f) => f.id === formData.formationType)
-                    ?.label || 'Niveau non défini'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation */}
-          <div className="mt-8 flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 0}
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Retour
-            </Button>
-            <Button onClick={handleNext}>
-              {currentStep === steps.length - 1 ? (
-                <>
-                  Terminer
-                  <Check className="h-4 w-4 ml-2" />
-                </>
-              ) : (
-                <>
-                  Suivant
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </section>
+      </div>
     </div>
   );
 }

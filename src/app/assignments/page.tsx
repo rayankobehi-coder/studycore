@@ -1,67 +1,122 @@
 'use client';
-
-import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Badge } from '@/components/ui/badge';
+import { AddAssignmentDialog } from '@/components/forms/planning-dialogs';
+import { ConfirmDialog, assessmentTypes } from '@/components/forms/academic-dialogs';
+import { useWorkspace } from '@/components/providers/workspace-provider';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Clock3, Plus, TriangleAlert, X } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states';
+import { countdown, daysUntil, formatDate } from '@/lib/workspace/dates';
+import { AlertTriangle, CalendarDays, CheckCircle2, Circle, Clock, Plus, Trash2 } from 'lucide-react';
+import type { Assignment } from '@/lib/types';
 
-type Deadline = { id: number; category: string; type: string; name: string; priority: string; coefficient: number; time: string; place: string; note: string; delay: string; tone: string };
-const startingDeadlines: Deadline[] = [
-  { id: 1, category: "AUJOURD'HUI & URGENT", type: 'EXAMEN PARTIEL', name: 'Réseaux & Télécoms', priority: 'Priorité Haute', coefficient: 3, time: '14:00', place: 'Salle C04', note: 'Calculatrice autorisée · Formulaire fourni sur table', delay: 'Dans 3 heures', tone: 'red' },
-  { id: 2, category: 'CETTE SEMAINE', type: 'Examen Final Écrit', name: 'Algorithmique & Structures', priority: 'Priorité Haute', coefficient: 4, time: '15 Fév.', place: 'Amphithéâtre Galois', note: "Pondération majeure · Représente 40% de l'UE", delay: 'Dans 3 jours', tone: 'violet' },
-  { id: 3, category: 'CETTE SEMAINE', type: 'Projet de Groupe', name: 'Base de Données Relationnelles', priority: 'Priorité Moyenne', coefficient: 3, time: '17 Fév.', place: 'Dépôt Git / Moodle', note: 'Note CC à consolider · 8.7 / 20', delay: 'Dans 5 jours', tone: 'blue' },
-  { id: 4, category: 'PLUS TARD (S2)', type: 'Contrôle Continu (CC)', name: 'Anglais Professionnel', priority: 'Priorité Normale', coefficient: 2, time: '24 Fév.', place: 'Salle B12', note: 'Pitch Présentation Pro · 5 min individuel', delay: 'Dans 12 jours', tone: 'green' },
-  { id: 5, category: 'PLUS TARD (S2)', type: 'Devoir Surveillé (DS)', name: "Mathématiques pour l'info", priority: 'Priorité Vigilance', coefficient: 2, time: '02 Mars', place: 'Salle A01', note: 'DS Algèbre Linéaire & Réduction', delay: 'Dans 18 jours', tone: 'violet' },
-];
+const EXAM_TYPES = ['EXAMEN', 'PARTIEL', 'EXAMEN_FINAL', 'RATTRAPAGE'];
+const priorityLabel = (p: number) => (p >= 4 ? 'Priorité haute' : p >= 3 ? 'Priorité moyenne' : 'Priorité normale');
 
-const filters = ['Toutes (7)', 'Examens (3)', 'Projets (2)', 'Devoirs (2)'];
+function Section({ title, items, emptyText, danger, subjects, onToggle, onDelete }: { title: string; items: Assignment[]; emptyText: string; danger?: boolean; subjects: { id: string; name: string }[]; onToggle: (a: Assignment) => void; onDelete: (id: string) => void }) {
+  return (
+    <section className="as-section" aria-label={title}>
+      <div className="as-section-head">
+        <h2 style={{ color: danger ? 'var(--danger)' : undefined }}>{danger && <span className="as-dot" aria-hidden="true" />}{title}</h2>
+        <span className="tiny muted">{items.length} échéance{items.length > 1 ? 's' : ''}</span>
+      </div>
+      {items.length === 0 ? <p className="small muted">{emptyText}</p> : items.map(item => {
+        const exam = EXAM_TYPES.includes(item.type);
+        const done = item.status === 'COMPLETED';
+        const late = !done && daysUntil(item.dueDate) < 0;
+        const subject = subjects.find(s => s.id === item.subjectId);
+        const typeLabel = exam ? 'Examen' : assessmentTypes.find(t => t.value === item.type)?.label ?? 'Devoir';
+        return (
+          <article key={item.id} className={`as-card ${exam && !done ? 'is-exam' : ''}`} style={{ opacity: done ? 0.6 : 1 }}>
+            <div className="as-card-top">
+              <div className="as-chips">
+                <span className={`badge ${exam ? 'badge-danger' : 'badge-outline'}`}>{typeLabel}</span>
+                <span className="badge badge-outline">{priorityLabel(item.priority)}</span>
+              </div>
+              <span className="as-coeff">Coeff {item.coefficient}</span>
+            </div>
+            <h3 style={{ textDecoration: done ? 'line-through' : undefined }}>{item.title}</h3>
+            <p className="small muted">{subject?.name ?? 'Matière'} • {formatDate(item.dueDate, { weekday: 'long', day: 'numeric', month: 'long' })}{item.estimatedTime ? ` • ~${item.estimatedTime} min` : ''}</p>
+            <div className="as-card-foot">
+              <span className={`as-countdown ${late || exam ? 'is-danger' : ''}`}>{done ? 'Terminé' : late ? <><AlertTriangle size={14} />En retard</> : <><Clock size={14} />{countdown(item.dueDate)}</>}</span>
+              <div className="row" style={{ gap: 6 }}>
+                <button type="button" className="button button-secondary button-sm" onClick={() => onToggle(item)} aria-pressed={done}>{done ? <><Circle size={14} />Rouvrir</> : <><CheckCircle2 size={14} />Terminer</>}</button>
+                <button type="button" className="icon-button danger" aria-label={`Supprimer ${item.title}`} onClick={() => onDelete(item.id)}><Trash2 size={15} /></button>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
 
 export default function AssignmentsPage() {
-  const [deadlines, setDeadlines] = useState(startingDeadlines);
-  const [filter, setFilter] = useState('Toutes (7)');
-  const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState('');
+  const { data, update } = useWorkspace();
+  const [addOpen, setAddOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
 
-  const addDeadline = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setDeadlines((current) => [...current, { id: Date.now(), category: 'CETTE SEMAINE', type: 'Nouveau devoir', name: title, priority: 'Priorité Normale', coefficient: 1, time: '20 Fév.', place: 'À définir', note: 'Nouvelle échéance à préparer', delay: 'À venir', tone: 'violet' }]);
-    setTitle('');
-    setShowForm(false);
-  };
+  const groups = useMemo(() => {
+    const open = data.assignments.filter(a => a.status !== 'COMPLETED' || showDone).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    return {
+      late: open.filter(a => a.status !== 'COMPLETED' && daysUntil(a.dueDate) < 0),
+      today: open.filter(a => daysUntil(a.dueDate) === 0),
+      week: open.filter(a => daysUntil(a.dueDate) >= 1 && daysUntil(a.dueDate) <= 7),
+      later: open.filter(a => daysUntil(a.dueDate) > 7),
+    };
+  }, [data.assignments, showDone]);
 
-  const filtered = deadlines.filter((item) => {
-    if (filter.startsWith('Examens')) return item.type.toLowerCase().includes('examen');
-    if (filter.startsWith('Projets')) return item.type.toLowerCase().includes('projet');
-    if (filter.startsWith('Devoirs')) return item.type.toLowerCase().includes('devoir') || item.type.toLowerCase().includes('contrôle');
-    return true;
-  });
-  const groups = [...new Set(filtered.map((item) => item.category))];
+  function toggle(assignment: Assignment) {
+    const done = assignment.status === 'COMPLETED';
+    update(current => ({ ...current, assignments: current.assignments.map(a => a.id === assignment.id ? { ...a, status: done ? 'PENDING' : 'COMPLETED' } : a) }), done ? 'Échéance rouverte' : 'Bravo, échéance terminée');
+  }
+  function remove(id: string) {
+    update(current => ({ ...current, assignments: current.assignments.filter(a => a.id !== id) }), 'Échéance supprimée');
+  }
+
+  const openExams = data.assignments.filter(a => EXAM_TYPES.includes(a.type) && a.status !== 'COMPLETED' && daysUntil(a.dueDate) >= 0);
+  const examCoefficient = openExams.reduce((sum, a) => sum + a.coefficient, 0);
+  const deleteTarget = data.assignments.find(a => a.id === toDelete);
 
   return (
-    <AppLayout>
-      <div className="screen-heading">
-        <div><h1>Échéances</h1><p>Devoirs, projets et examens à venir</p></div>
-        <button type="button" className="primary-action compact-action" onClick={() => setShowForm(true)}><Plus size={17} /> Ajouter</button>
-      </div>
-      <div className="deadline-callout"><span><TriangleAlert size={19} /></span><div><strong>3 examens critiques ce mois-ci</strong><p>Coefficient cumulé : 10 · Priorité absolue</p></div><Badge variant="info">{deadlines.length} Actifs</Badge></div>
-      <div className="deadline-filters">{filters.map((item) => <button type="button" key={item} className={filter === item ? 'selected' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div>
+    <AppLayout title="Échéances">
+      <div className="as">
+        <header className="nm-head">
+          <div style={{ minWidth: 0 }}>
+            <h1>Échéances</h1>
+            <p>Devoirs, projets et examens à venir, classés par urgence.</p>
+          </div>
+          <div className="nm-head-actions">
+            <Button size="sm" onClick={() => setAddOpen(true)}><Plus size={15} />Ajouter</Button>
+          </div>
+        </header>
 
-      <div className="deadline-groups">
-        {groups.map((group) => <section className="deadline-group" key={group}>
-          <div className={`deadline-group-title ${group.startsWith('AUJOUR') ? 'urgent-text' : ''}`}><span>{group.startsWith('AUJOUR') ? '●' : '•'}</span><strong>{group}</strong><small>{filtered.filter((item) => item.category === group).length} échéance{filtered.filter((item) => item.category === group).length > 1 ? 's' : ''}</small></div>
-          {filtered.filter((item) => item.category === group).map((item) => <article className={`deadline-card ${item.tone}`} key={item.id}>
-            <div className="deadline-card-top"><span className="deadline-type">{item.type}</span><span className="deadline-priority">{item.priority}</span><Badge variant="outline">Coeff {item.coefficient}</Badge></div>
-            <h2>{item.name}</h2>
-            <div className="deadline-meta"><span>{item.tone === 'red' ? <Clock3 size={14} /> : <CalendarDays size={14} />}{item.time} · {item.place}</span><strong className={item.tone === 'red' ? 'score-red' : ''}><Clock3 size={14} />{item.delay}</strong></div>
-            <div className={`deadline-note ${item.tone}`}>{item.note}</div>
-          </article>)}
-        </section>)}
-      </div>
-      <Link href="/simulator" className="deadline-sim-callout"><div><span>OBJECTIF MENTION</span><strong>Calculer l&apos;impact sur ma moyenne</strong><small>Simulez vos notes minimales requises.</small></div><span>Simuler</span></Link>
+        <section className="as-banner" aria-label="Résumé des échéances">
+          <span className="as-banner-icon"><AlertTriangle size={18} /></span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <strong>{openExams.length} examen{openExams.length > 1 ? 's' : ''} à venir</strong>
+            <p className="small muted">Coefficient cumulé : {examCoefficient} • {groups.today.length} aujourd’hui • {groups.late.length} en retard</p>
+          </div>
+          <span className="badge badge-brand">{data.assignments.filter(a => a.status !== 'COMPLETED').length} actives</span>
+        </section>
 
-      {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowForm(false); }}><section className="simple-modal" role="dialog" aria-modal="true" aria-labelledby="deadline-title"><button type="button" className="modal-close" aria-label="Fermer" onClick={() => setShowForm(false)}><X size={18} /></button><h2 id="deadline-title">Ajouter une échéance</h2><p>Garde tes devoirs et examens sous contrôle.</p><form onSubmit={addDeadline}><label htmlFor="deadline-name">Nom du devoir ou de l&apos;examen</label><input id="deadline-name" autoFocus required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex. Devoir de mathématiques" /><Button type="submit"><Plus size={16} className="mr-2" />Créer l&apos;échéance</Button></form></section></div>}
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="button button-ghost button-sm" onClick={() => setShowDone(v => !v)} aria-pressed={showDone}>{showDone ? 'Masquer les terminées' : 'Afficher les terminées'}</button>
+        </div>
+
+        {data.assignments.length === 0 ? <EmptyState title="Aucune échéance pour l’instant." description="Ajoute tes devoirs et examens pour ne plus rien oublier." action={<Button onClick={() => setAddOpen(true)}><Plus size={16} />Ajouter une échéance</Button>} /> : (
+          <div className="as-sections">
+            {groups.late.length > 0 && <Section title="En retard" items={groups.late} emptyText="" danger subjects={data.subjects} onToggle={toggle} onDelete={setToDelete} />}
+            <Section title="Aujourd’hui & urgent" items={groups.today} emptyText="Rien d’urgent aujourd’hui." danger={groups.today.some(a => EXAM_TYPES.includes(a.type))} subjects={data.subjects} onToggle={toggle} onDelete={setToDelete} />
+            <Section title="Cette semaine" items={groups.week} emptyText="Aucune échéance cette semaine." subjects={data.subjects} onToggle={toggle} onDelete={setToDelete} />
+            <Section title="Plus tard" items={groups.later} emptyText="Rien de prévu au-delà de 7 jours." subjects={data.subjects} onToggle={toggle} onDelete={setToDelete} />
+          </div>
+        )}
+        {data.assignments.length > 0 && <p className="small muted row" style={{ gap: 6 }}><CalendarDays size={14} />Les échéances terminées restent consultables avec « Afficher les terminées ».</p>}
+      </div>
+      <AddAssignmentDialog open={addOpen} onOpenChange={setAddOpen} />
+      <ConfirmDialog open={Boolean(toDelete)} onOpenChange={o => !o && setToDelete(null)} title="Supprimer cette échéance ?" description={`« ${deleteTarget?.title ?? ''} » sera retirée de ta liste.`} confirmLabel="Supprimer" onConfirm={() => toDelete && remove(toDelete)} />
     </AppLayout>
   );
 }

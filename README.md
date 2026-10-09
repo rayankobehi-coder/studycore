@@ -1,54 +1,35 @@
 # STUDYCORE
 
-StudyCore est une interface responsive de suivi de parcours étudiant. Le projet utilise Next.js App Router, React, TypeScript et CSS (Tailwind CSS 4 pour les utilitaires et `src/app/globals.css` pour le design system).
+Plateforme académique : notes, moyennes, simulateur, crédits ECTS, parcours, planning, échéances, révisions, objectifs, analytics et ressources.
 
-## Lancer le projet
+## Démarrer
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:3000
+npm run build && npm run start
 ```
 
-Ouvrir [http://localhost:3000](http://localhost:3000).
+## Logo
 
-Pour vérifier une version de production :
+Place ton fichier **`public/logo.png`**. Il est utilisé dans la barre latérale, l’en-tête mobile et l’icône du site. Tant qu’il est absent, le logo STUDYCORE intégré (`public/brand-mark.svg`) est affiché automatiquement.
 
-```bash
-npm run lint
-npm run build
-```
+## Mode démonstration
 
-## Pages
+Sans configuration Supabase, l’application fonctionne en mode démonstration avec des données fictives (élève « Alex Martin », BTS Informatique). Toutes les modifications restent dans le navigateur (`localStorage`). Le bouton « Explorer la démo » est disponible sur les pages de connexion et d’accueil.
 
-| URL | Page |
-| --- | --- |
-| `/dashboard` | Accueil et résumé académique |
-| `/subjects` | Notes, matières et ajout d’évaluation |
-| `/subjects/algorithmique` | Détail d’une matière |
-| `/simulator` | Simulateur par matière et par semestre |
-| `/schedule` | Emploi du temps |
-| `/assignments` | Échéances, devoirs et examens |
-| `/credits` | Suivi des crédits ECTS |
-| `/study-planner` | Plan de révisions |
-| `/analytics` | Performances académiques |
-| `/pathway` | Parcours et progression vers le diplôme |
-| `/resources` | Bibliothèque de ressources |
-| `/profile` | Profil étudiant |
+## Supabase (optionnel, comptes réels)
 
-La navigation mobile est en bas de l’écran; sur grand écran, le menu latéral donne aussi accès aux pages complémentaires.
+1. Copie `.env.example` en `.env.local` et renseigne `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+2. Exécute `src/database/migrations/20261009_student_workspaces.sql` dans l’éditeur SQL de Supabase. Cette table stocke l’espace de chaque étudiant, protégé par RLS (chacun ne voit que ses données).
+3. Redémarre le serveur.
 
-## Images et organisation
+## Architecture
 
-```text
-public/
-└── images/
-    ├── logo.png
-    └── references/
-        └── studycore_*.png
-```
+- `src/app` : pages (App Router). `proxy.ts` gère la protection des routes.
+- `src/components` : coque d’application, composants académiques, graphiques, formulaires et UI.
+- `src/lib/engine` : moteur de calcul et règles académiques (inchangé).
+- `src/lib/workspace` : données, sélecteurs (qui appellent le moteur), validation (Zod), export.
+- `src/app/globals.css` : système visuel complet (couleurs, mode clair/sombre, composants, responsive).
 
-`public/images/logo.png` est le logo partagé par l’interface. Les visuels d’inspiration fournis sont conservés dans `public/images/references/`; l’interface est constituée de composants React et CSS, et non de captures d’écran utilisées comme arrière-plan.
-
-## Supabase
-
-Pour activer l’authentification et les données Supabase, copier `.env.example` vers `.env.local` et renseigner l’URL du projet et la clé publique `anon`. Sans ces paramètres, le site reste navigable en mode démonstration; les opérations d’authentification nécessitent une instance Supabase configurée.
+Les résultats affichés sont indicatifs et non officiels.

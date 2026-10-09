@@ -1,54 +1,104 @@
 'use client';
-
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Badge } from '@/components/ui/badge';
+import { useWorkspace } from '@/components/providers/workspace-provider';
+import { ProgressRing } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CircleHelp, GraduationCap, Scale, Sparkles } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states';
+import { Check, Clock, CheckCircle2 } from 'lucide-react';
+import type { Workspace } from '@/lib/workspace/types';
 
-const units = [
-  { code: 'UE 1', title: 'Informatique Fondamentale', credits: 12, average: '14.65', status: 'VALIDÉE', subjects: [{ name: 'Algorithmique & C++', grade: '15.2/20', credits: 6 }, { name: 'Développement Web Avancé', grade: '14.1/20', credits: 6 }] },
-  { code: 'UE 2', title: 'Systèmes, Réseaux & Données', credits: 10, average: '11.25', status: 'EN ATTENTE', subjects: [{ name: 'Architecture Réseaux IP', grade: '13.8/20', credits: 5 }, { name: 'Bases de Données Relationnelles', grade: '8.7/20', credits: 5 }] },
-  { code: 'UE 3', title: 'Sciences Appliquées & Outils', credits: 8, average: '12.15', status: 'COMPENSABLE', subjects: [{ name: 'Anglais Professionnel', grade: '16.4/20', credits: 4 }, { name: "Mathématiques pour l'info", grade: '7.9/20', credits: 4 }] },
-];
+const unitLabels: Record<string, string> = { informatique: 'Informatique fondamentale', langues: 'Langues & communication', sciences: 'Mathématiques & sciences', professionnel: 'Projet & gestion' };
 
 export default function CreditsPage() {
-  const [activeTab, setActiveTab] = useState('Semestre 2');
+  const { data, update } = useWorkspace();
+  const units = useMemo(() => {
+    const groups = new Map<string, { id: string; label: string; credits: number; earned: number; statuses: string[] }>();
+    data.credits.forEach(credit => {
+      const key = credit.unitId ?? 'autre';
+      const group = groups.get(key) ?? { id: key, label: unitLabels[key] ?? 'Autres UE', credits: 0, earned: 0, statuses: [] };
+      group.credits += credit.creditsTotal; group.earned += credit.creditsEarned; group.statuses.push(credit.status);
+      groups.set(key, group);
+    });
+    return [...groups.values()].map(group => {
+      const state = group.statuses.every(s => s === 'ACQUIRED') ? 'VALIDATED' : group.statuses.some(s => s === 'PENDING' || s === 'FAILED') ? 'PENDING' : 'IN_PROGRESS';
+      return { ...group, state };
+    });
+  }, [data.credits]);
+
+  if (data.credits.length === 0) return <AppLayout title="Crédits ECTS"><EmptyState title="Aucun crédit à suivre." description="Tes crédits ECTS apparaîtront dès que tes matières seront configurées." /></AppLayout>;
+
+  const total = data.credits.reduce((s, c) => s + c.creditsTotal, 0);
+  const earned = data.credits.reduce((s, c) => s + c.creditsEarned, 0);
+  const pending = data.credits.filter(c => c.status === 'PENDING' || c.status === 'FAILED').reduce((s, c) => s + c.creditsTotal - c.creditsEarned, 0);
+  const remaining = Math.max(0, total - earned - pending);
+  const pct = total ? (earned / total) * 100 : 0;
+
+  function markAcquired(subjectId: string) {
+    update((current: Workspace) => ({ ...current, credits: current.credits.map(c => c.subjectId === subjectId ? { ...c, creditsEarned: c.creditsTotal, status: 'ACQUIRED', validatedAt: new Date().toISOString() } : c) }), 'Crédits marqués comme acquis');
+  }
+  function markPending(subjectId: string) {
+    update((current: Workspace) => ({ ...current, credits: current.credits.map(c => c.subjectId === subjectId ? { ...c, creditsEarned: 0, status: 'PENDING', validatedAt: undefined } : c) }), 'Crédits remis en attente');
+  }
+
   return (
-    <AppLayout>
-      <div className="screen-heading">
-        <div><Badge variant="info">● SYSTÈME EUROPÉEN ECTS</Badge><h1>Crédits ECTS</h1><p>Comptabilise et valide tes crédits européens pour l&apos;obtention du diplôme.</p></div>
+    <AppLayout title="Crédits ECTS">
+      <div className="cr">
+        <header style={{ minWidth: 0 }}>
+          <span className="dash-chip"><i aria-hidden="true" />Système européen ECTS</span>
+          <h1 style={{ marginTop: 10 }}>Crédits ECTS</h1>
+          <p className="small muted" style={{ marginTop: 4 }}>Comptabilité de tes crédits européens, pour l’obtention du diplôme. Indicatif, non officiel.</p>
+        </header>
+
+        <section className="cr-ring" aria-label="Progression des crédits">
+          <ProgressRing value={pct} size={190} stroke={13} label="Crédits acquis">
+            <div style={{ textAlign: 'center' }}><div className="num" style={{ fontSize: '2.4rem', fontWeight: 760, letterSpacing: '-0.04em' }}>{earned}</div><div className="small muted">/ {total} ECTS validés</div></div>
+          </ProgressRing>
+          <div className="cr-mini">
+            <div><span className="dot" style={{ background: 'var(--ok)' }} />Acquis<strong className="num" style={{ color: 'var(--ok)' }}>{earned}</strong></div>
+            <div><span className="dot" style={{ background: 'var(--warn)' }} />En attente<strong className="num" style={{ color: 'var(--warn)' }}>{pending}</strong></div>
+            <div><span className="dot" style={{ background: 'var(--text-3)' }} />Restants<strong className="num">{remaining}</strong></div>
+          </div>
+        </section>
+
+        <section className="cr-units" aria-label="Unités d’enseignement">
+          <div className="nm-group-head"><h2>Unités d’enseignement</h2><span className="tiny muted">{units.length} UE</span></div>
+          {units.map(unit => {
+            const rows = data.credits.filter(c => (c.unitId ?? 'autre') === unit.id);
+            const validated = unit.state === 'VALIDATED';
+            return (
+              <article key={unit.id} className="cr-ue">
+                <div className="cr-ue-top">
+                  <div style={{ minWidth: 0 }}>
+                    <span className="tiny muted">{unit.credits} ECTS</span>
+                    <h3>{unit.label}</h3>
+                  </div>
+                  <span className={`badge ${validated ? 'badge-success' : unit.state === 'PENDING' ? 'badge-warning' : 'badge-info'}`}>{validated ? <><Check size={12} />Validée</> : unit.state === 'PENDING' ? <><Clock size={12} />En attente</> : 'En cours'}</span>
+                </div>
+                <div className="progress" role="progressbar" aria-valuenow={unit.credits ? Math.round((unit.earned / unit.credits) * 100) : 0} aria-valuemin={0} aria-valuemax={100} aria-label={`Progression ${unit.label}`}><span style={{ width: `${unit.credits ? (unit.earned / unit.credits) * 100 : 0}%` }} /></div>
+                <p className="small muted">{unit.earned} / {unit.credits} crédits acquis</p>
+                <div className="cr-rows">
+                  {rows.map(credit => {
+                    const subject = data.subjects.find(s => s.id === credit.subjectId);
+                    const acquired = credit.status === 'ACQUIRED';
+                    return (
+                      <div key={credit.id} className="cr-row">
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <strong style={{ display: 'block' }}>{subject?.name ?? 'Matière supprimée'}</strong>
+                          <span className="tiny muted">{credit.creditsEarned} / {credit.creditsTotal} ECTS • {acquired ? 'Acquis' : credit.status === 'PENDING' ? 'En attente' : 'En cours'}</span>
+                        </div>
+                        {subject && (acquired
+                          ? <Button size="sm" variant="ghost" onClick={() => markPending(subject.id)}>Remettre en attente</Button>
+                          : <Button size="sm" variant="secondary" onClick={() => markAcquired(subject.id)}><CheckCircle2 size={14} />Marquer acquis</Button>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            );
+          })}
+        </section>
       </div>
-      <div className="segmented-tabs credit-tabs">{['Semestre 2', 'Année 26-27', 'Cycle Global'].map((tab) => <button type="button" key={tab} className={activeTab === tab ? 'selected' : ''} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
-
-      <section className="credit-overview">
-        <div className="credit-ring" style={{ '--credit-value': '70%' } as React.CSSProperties}><div><strong>42 <small>/ 60</small></strong><span>ECTS validés (70%)</span><Badge variant="success">↗ En bonne voie</Badge></div></div>
-        <div className="credit-legend">
-          <div><span className="legend-dot acquired" /><small>Acquis</small><strong>42</strong><span>ECTS sécurisés</span></div>
-          <div><span className="legend-dot pending" /><small>En attente</small><strong>12</strong><span>Examens S2</span></div>
-          <div><span className="legend-dot retry" /><small>Rattrapage</small><strong>6</strong><span>Session juin</span></div>
-        </div>
-      </section>
-
-      <div className="unit-heading credits-heading"><GraduationCap size={17} /><h2>Unités d&apos;Enseignement (S2)</h2><span>3 Blocs</span></div>
-      <div className="credit-units">
-        {units.map((unit) => (
-          <article className="credit-unit" key={unit.code}>
-            <div className="credit-unit-head"><div><span>{unit.code} · {unit.credits} ECTS</span><h3>{unit.title}</h3><small>Moyenne générale : {unit.average} / 20</small></div><Badge variant={unit.status === 'VALIDÉE' ? 'success' : unit.status === 'EN ATTENTE' ? 'warning' : 'info'}>{unit.status}</Badge></div>
-            <div className="credit-subjects">{unit.subjects.map((subject) => <div className="credit-subject" key={subject.name}><span className="credit-bullet" /><span>{subject.name}</span><strong className={subject.grade.startsWith('8') || subject.grade.startsWith('7') ? 'score-red' : ''}>{subject.grade}</strong><small>{subject.credits} ECTS</small></div>)}</div>
-            <div className="credit-unit-footer"><span>Taux d&apos;acquisition bloc</span><strong>{unit.status === 'VALIDÉE' ? '12 / 12 ECTS Sécurisés' : unit.status === 'EN ATTENTE' ? '5 / 10 ECTS Sécurisés' : '4 / 8 ECTS acquis'}</strong></div>
-          </article>
-        ))}
-      </div>
-
-      <section className="degree-ladders">
-        <div className="unit-heading"><GraduationCap size={17} /><h2>Paliers vers le Diplôme</h2><Badge variant="info">Niveau Bac+2</Badge></div>
-        <div className="degree-step"><div><span>Passage en 2e année</span><strong>60 / 60 ECTS (100%)</strong></div><div className="subject-progress"><span className="validated" style={{ width: '100%' }} /></div></div>
-        <div className="degree-step"><div><span>Obtention finale BTS SIO</span><strong>72 / 120 ECTS (60%)</strong></div><div className="subject-progress"><span style={{ width: '60%', background: '#5141ef' }} /></div></div>
-        <div className="degree-step"><div><span>Passerelle Licence L3 <CircleHelp size={12} /></span><small>120 ECTS requis</small></div><div className="subject-progress"><span style={{ width: '38%', background: '#cfd2f4' }} /></div></div>
-      </section>
-
-      <section className="ects-rule"><div className="rule-title"><span><Scale size={17} /></span><div><strong>Règle d&apos;or ECTS</strong><p>Une Unité d&apos;Enseignement est définitivement acquise dès lors que la moyenne pondérée du bloc est supérieure ou égale à 10.00/20, sans note éliminatoire (&lt; 05.00/20).</p></div></div><Button className="w-full"><Sparkles size={16} className="mr-2" />Simuler l&apos;impact sur mes crédits<ArrowRight size={16} className="ml-2" /></Button></section>
     </AppLayout>
   );
 }
