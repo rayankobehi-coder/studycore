@@ -1,265 +1,107 @@
 'use client';
-
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { PageHead, StatCard, Grade, StatusBadge, ProgressBarInline } from '@/components/academic';
+import { AddSubjectDialog, ConfirmDialog } from '@/components/forms/academic-dialogs';
+import { useWorkspace } from '@/components/providers/workspace-provider';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { useState } from 'react';
-import {
-  GraduationCap,
-  Plus,
-  Pencil,
-  Trash2,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react';
-
-interface AssessmentItem {
-  id: string;
-  name: string;
-  type: string;
-  grade: number;
-  coefficient: number;
-}
-
-interface SubjectItem {
-  id: string;
-  name: string;
-  code: string;
-  coefficient: number;
-  credits: number;
-  average: number;
-  status: 'VALIDATED' | 'WARNING' | 'FAILED' | 'RETAKABLE';
-  assessments: AssessmentItem[];
-}
-
-const initialSubjects: SubjectItem[] = [
-  {
-    id: '1',
-    name: 'Algorithmique',
-    code: 'ALGO',
-    coefficient: 4,
-    credits: 6,
-    average: 11.8,
-    status: 'WARNING',
-    assessments: [
-      { id: 'a1', name: 'TP 1', type: 'TP', grade: 15, coefficient: 1 },
-      { id: 'a2', name: 'TP 2', type: 'TP', grade: 13, coefficient: 1 },
-      { id: 'a3', name: 'Devoir', type: 'DEVOIR', grade: 12, coefficient: 2 },
-      { id: 'a4', name: 'Examen', type: 'EXAMEN', grade: 9.5, coefficient: 4 },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Base de données',
-    code: 'BDD',
-    coefficient: 3,
-    credits: 6,
-    average: 8.5,
-    status: 'FAILED',
-    assessments: [
-      { id: 'b1', name: 'TP 1', type: 'TP', grade: 12, coefficient: 1 },
-      { id: 'b2', name: 'Devoir surveillé', type: 'DEVOIR_SURVEILLE', grade: 8, coefficient: 2 },
-      { id: 'b3', name: 'Examen', type: 'EXAMEN', grade: 6, coefficient: 4 },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Réseaux',
-    code: 'RES',
-    coefficient: 3,
-    credits: 6,
-    average: 13.9,
-    status: 'VALIDATED',
-    assessments: [
-      { id: 'c1', name: 'TP 1', type: 'TP', grade: 14, coefficient: 1 },
-      { id: 'c2', name: 'Devoir', type: 'DEVOIR', grade: 15, coefficient: 2 },
-      { id: 'c3', name: 'Examen', type: 'EXAMEN', grade: 12, coefficient: 4 },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Anglais',
-    code: 'ANG',
-    coefficient: 2,
-    credits: 3,
-    average: 14.2,
-    status: 'VALIDATED',
-    assessments: [
-      { id: 'd1', name: 'Interrogation', type: 'INTERROGATION', grade: 14, coefficient: 1 },
-      { id: 'd2', name: 'Oral', type: 'ORAL', grade: 15, coefficient: 2 },
-    ],
-  },
-  {
-    id: '5',
-    name: 'Mathématiques',
-    code: 'MATH',
-    coefficient: 3,
-    credits: 6,
-    average: 7.8,
-    status: 'RETAKABLE',
-    assessments: [
-      { id: 'e1', name: 'Devoir', type: 'DEVOIR', grade: 7, coefficient: 2 },
-      { id: 'e2', name: 'Composition', type: 'EXAMEN', grade: 8.5, coefficient: 3 },
-    ],
-  },
-];
-
-const statusConfig = {
-  VALIDATED: { label: 'Validée', badge: 'success' as const, icon: CheckCircle2, color: 'text-green-600' },
-  WARNING: { label: 'À surveiller', badge: 'warning' as const, icon: AlertTriangle, color: 'text-yellow-600' },
-  FAILED: { label: 'Non validée', badge: 'danger' as const, icon: XCircle, color: 'text-red-600' },
-  RETAKABLE: { label: 'Rattrapage possible', badge: 'info' as const, icon: AlertTriangle, color: 'text-blue-600' },
-};
+import { Select } from '@/components/ui/fields';
+import { EmptyState } from '@/components/ui/states';
+import { getSubjectResults, getSummary } from '@/lib/workspace/selectors';
+import { number } from '@/lib/workspace/dates';
+import { CheckCircle2, CreditCard, Plus, Search, Trash2, ChevronRight, Sigma, Pencil } from 'lucide-react';
+import type { Workspace } from '@/lib/workspace/types';
 
 export default function SubjectsPage() {
-  const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const { data, update } = useWorkspace();
+  const [addOpen, setAddOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [toDelete, setToDelete] = useState<string | null>(null);
+  const summary = useMemo(() => getSummary(data), [data]);
+  const results = useMemo(() => getSubjectResults(data).filter(r => r.subjectName.toLowerCase().includes(query.toLowerCase())), [data, query]);
+  const subjectToDelete = data.subjects.find(s => s.id === toDelete);
 
-  const totalAverage =
-    subjects.reduce((sum, s) => sum + s.average * s.coefficient, 0) /
-    subjects.reduce((sum, s) => sum + s.coefficient, 0);
+  function removeSubject(id: string) {
+    update((current: Workspace) => ({
+      ...current,
+      subjects: current.subjects.filter(s => s.id !== id),
+      assessments: current.assessments.filter(a => a.subjectId !== id),
+      grades: current.grades.filter(g => g.subjectId !== id),
+      credits: current.credits.filter(c => c.subjectId !== id),
+      assignments: current.assignments.filter(a => a.subjectId !== id),
+      sessions: current.sessions.filter(s => s.subjectId !== id),
+      events: current.events.filter(e => e.subjectId !== id),
+      resources: current.resources.filter(r => r.subjectId !== id),
+    }), 'Matière supprimée');
+  }
 
   return (
-    <AppLayout>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Notes & Matières</h1>
-          <p className="mt-1 text-gray-500">Gérez tes matières et tes évaluations</p>
+    <AppLayout title="Notes & matières">
+      <PageHead
+        eyebrow="Notes"
+        title="Notes & matières"
+        description="Centralise toutes tes évaluations et suis ta progression matière par matière."
+        actions={<><Link href="/grades/new" className="button button-outline"><Pencil size={16} />Ajouter une note</Link><Button onClick={() => setAddOpen(true)}><Plus size={16} />Ajouter une matière</Button></>}
+      />
+
+      <section className="stats-grid" aria-label="Résumé">
+        <StatCard label="Moyenne générale" icon={<Sigma size={16} />} value={<span className="num">{number(summary.average)}</span>} unit="/20" />
+        <StatCard label="Matières validées" tone="ok" icon={<CheckCircle2 size={16} />} value={<span className="num">{summary.validated}</span>} unit={`/ ${data.subjects.length}`} />
+        <StatCard label="Crédits obtenus" icon={<CreditCard size={16} />} value={<span className="num">{summary.earnedCredits}</span>} unit={`/ ${summary.totalCredits}`} foot={<ProgressBarInline value={summary.totalCredits ? (summary.earnedCredits / summary.totalCredits) * 100 : 0} />} />
+        <StatCard label="Évaluations saisies" value={<span className="num">{data.grades.length}</span>} foot={<>{data.subjects.length} matières suivies</>} />
+      </section>
+
+      <div className="row-between" style={{ margin: '30px 0 16px', gap: 12 }}>
+        <div className="search" style={{ maxWidth: 360 }}>
+          <Search size={17} aria-hidden="true" />
+          <label htmlFor="subject-search" className="sr-only">Filtrer les matières</label>
+          <input id="subject-search" className="input" placeholder="Filtrer les matières…" value={query} onChange={e => setQuery(e.target.value)} />
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Ajouter une matière
-        </Button>
+        <div style={{ width: 240 }}>
+          <Select label="Semestre" className="" value={data.activeSemesterId} onChange={e => update(c => ({ ...c, activeSemesterId: e.target.value }))}>
+            <option value="all">Toute l’année</option>
+            {data.semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </Select>
+        </div>
       </div>
 
-      {/* Summary */}
-      <div className="mb-8 grid gap-6 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm font-medium text-gray-500">Moyenne générale</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">
-              {totalAverage.toFixed(2)}
-              <span className="text-lg text-gray-400">/20</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm font-medium text-gray-500">Matières validées</p>
-            <p className="text-3xl font-bold text-green-600 mt-1">
-              {subjects.filter((s) => s.status === 'VALIDATED').length}
-              <span className="text-lg text-gray-400">/{subjects.length}</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm font-medium text-gray-500">Crédits obtenus</p>
-            <p className="text-3xl font-bold text-indigo-600 mt-1">
-              {subjects
-                .filter((s) => s.status === 'VALIDATED' || s.status === 'WARNING')
-                .reduce((sum, s) => sum + s.credits, 0)}
-              <span className="text-lg text-gray-400">/27</span>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Subjects */}
-      <div className="space-y-6">
-        {subjects.map((subject) => {
-          const config = statusConfig[subject.status];
-          const StatusIcon = config.icon;
-          return (
-            <Card key={subject.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-indigo-50 p-3">
-                      <GraduationCap className="h-5 w-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        {subject.name}
-                        <span className="text-sm font-normal text-gray-400">
-                          {subject.code} · Coeff {subject.coefficient}
-                        </span>
-                      </CardTitle>
-                    </div>
+      {data.subjects.length === 0 ? (
+        <EmptyState title="Tu n’as encore aucune note." description="Commence par ajouter ta première matière, puis ta première évaluation." action={<Button onClick={() => setAddOpen(true)}><Plus size={16} />Ajouter une matière</Button>} />
+      ) : (
+        <div className="stack" style={{ gap: 14 }}>
+          {results.length === 0 && <p className="muted">Aucune matière ne correspond à « {query} ».</p>}
+          {results.map(result => {
+            const subject = data.subjects.find(s => s.id === result.subjectId)!;
+            return (
+              <article key={result.subjectId} className="panel rise" style={{ display: 'grid', gridTemplateColumns: '6px minmax(0,1fr) auto', gap: 20, alignItems: 'center', padding: '20px 22px 20px 0' }}>
+                <span style={{ alignSelf: 'stretch', background: subject.color ?? 'var(--brand)', borderRadius: '0 6px 6px 0' }} aria-hidden="true" />
+                <div style={{ minWidth: 0, display: 'grid', gap: 10 }}>
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
+                    <h2 style={{ fontSize: '1.08rem' }}>{subject.name}</h2>
+                    <span className="badge badge-outline">{subject.code}</span>
+                    <StatusBadge status={result.status} />
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className={`text-2xl font-bold ${config.color}`}>
-                        {subject.average.toFixed(2)}
-                        <span className="text-sm text-gray-400">/20</span>
-                      </p>
-                    </div>
-                    <Badge variant={config.badge}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {config.label}
-                    </Badge>
-                    <button
-                      onClick={() => setSelectedSubject(selectedSubject === subject.id ? null : subject.id)}
-                      className="rounded-lg p-2 hover:bg-gray-100"
-                    >
-                      {selectedSubject === subject.id ? (
-                        <span className="text-sm text-gray-500">Réduire</span>
-                      ) : (
-                        <span className="text-sm text-gray-500">Détails</span>
-                      )}
-                    </button>
+                  <div className="row small muted" style={{ gap: 18, flexWrap: 'wrap' }}>
+                    <span>Coefficient {subject.coefficient}</span><span>{subject.credits} crédits</span><span>{result.grades.length} évaluation(s)</span>
+                  </div>
+                  <div style={{ maxWidth: 420 }}>{result.grades.length ? <ProgressBarInline value={(result.average / 20) * 100} tone={result.status === 'VALIDATED' ? 'ok' : result.status === 'FAILED' ? 'danger' : result.status === 'WARNING' ? 'warn' : 'brand'} /> : <span className="tiny muted">Aucune note pour l’instant</span>}</div>
+                </div>
+                <div className="row" style={{ gap: 14 }}>
+                  <div style={{ textAlign: 'right' }}>{result.grades.length ? <Grade value={result.average} size="md" /> : <span className="muted small">Sans note</span>}</div>
+                  <div className="row" style={{ gap: 4 }}>
+                    <Link href={`/subjects/${subject.id}`} className="button button-secondary button-sm">Détail<ChevronRight size={15} /></Link>
+                    <button type="button" className="icon-button danger" aria-label={`Supprimer ${subject.name}`} onClick={() => setToDelete(subject.id)}><Trash2 size={16} /></button>
                   </div>
                 </div>
-              </CardHeader>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
-              {selectedSubject === subject.id && (
-                <CardContent>
-                  <div className="overflow-hidden rounded-lg border">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Évaluation</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coeff</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {subject.assessments.map((assessment) => (
-                          <tr key={assessment.id}>
-                            <td className="px-4 py-3 text-sm font-medium">{assessment.name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-500">{assessment.type}</td>
-                            <td className="px-4 py-3 text-sm font-semibold">{assessment.grade}/20</td>
-                            <td className="px-4 py-3 text-sm text-gray-500">{assessment.coefficient}</td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex justify-end gap-2">
-                                <button className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                <button className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600">
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <Button variant="outline" size="sm" className="mt-4">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajouter une évaluation
-                  </Button>
-                </CardContent>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+      <AddSubjectDialog open={addOpen} onOpenChange={setAddOpen} />
+      <ConfirmDialog open={Boolean(toDelete)} onOpenChange={open => !open && setToDelete(null)} title="Supprimer cette matière ?" description={`${subjectToDelete?.name ?? 'Cette matière'} et toutes ses notes seront supprimées. Cette action est définitive sur cet appareil.`} confirmLabel="Supprimer" onConfirm={() => toDelete && removeSubject(toDelete)} />
     </AppLayout>
   );
 }
