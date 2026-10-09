@@ -47,14 +47,17 @@ export function AppLayout({ title, children }: { title: string; children: ReactN
       <Sidebar />
       <div className="main">
         <header className="topbar">
-          <Link href="/dashboard" className="mobile-brand" aria-label="Accueil STUDYCORE"><BrandMark size={32} /></Link>
-          <span className="topbar-title" aria-hidden="true">{title}</span>
+          <div className="topbar-id">
+            <Link href="/dashboard" className="mobile-brand" aria-label="Accueil STUDYCORE"><BrandMark size={32} /></Link>
+            <div className="topbar-id-text"><strong>STUDYCORE</strong><span className="topbar-title" aria-hidden="true">{title}</span></div>
+          </div>
           <form className="search" role="search" onSubmit={submitSearch}>
             <Search size={17} aria-hidden="true" />
             <label htmlFor="global-search" className="sr-only">Rechercher un cours, une fiche, un sujet</label>
             <input id="global-search" className="input" value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher un cours, une fiche, un sujet…" />
           </form>
           <div className="topbar-actions">
+            <Link href="/resources" className="icon-button m-search" aria-label="Rechercher une ressource"><Search size={18} /></Link>
             <button type="button" className="icon-button" onClick={nextTheme} aria-label={`Thème : ${themeLabel[theme]}. Changer`} title={`Thème : ${themeLabel[theme]}`}>
               <ThemeIcon size={18} />
             </button>

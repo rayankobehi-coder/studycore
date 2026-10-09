@@ -62,7 +62,7 @@ export default function SubjectDetailPage() {
         </div>
       </header>
 
-      <section className="panel rise" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) minmax(0,1fr)', gap: 28, alignItems: 'center' }}>
+      <section className="panel rise sd-hero">
         <div>
           <p className="stat-label">Moyenne de la matière</p>
           <div className="big-number" style={{ color: meta.hex, marginTop: 10 }}>{result.grades.length ? number(result.average) : '—'}<small>/20</small></div>
@@ -78,29 +78,29 @@ export default function SubjectDetailPage() {
         <section className="panel" aria-labelledby="evals-title">
           <div className="panel-head"><div><h2 id="evals-title">Évaluations</h2><p>{rows.length} évaluation(s) pondérée(s) par leur coefficient.</p></div></div>
           {rows.length === 0 ? <EmptyState compact title="Tu n’as encore aucune note." description="Commence par ajouter ta première évaluation." action={<Link href={`/grades/new?subject=${subject.id}`} className="button button-primary"><Plus size={16} />Ajouter une note</Link>} /> : (
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th scope="col">Évaluation</th><th scope="col">Date</th><th scope="col">Note</th><th scope="col">Coeff.</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
-                <tbody>
-                  {rows.map(({ assessment, grade }) => {
-                    const normalized = grade ? (grade.value / grade.scale) * data.rules.gradingScale : 0;
-                    return (
-                      <tr key={assessment.id}>
-                        <td><strong>{assessment.name}</strong><div className="tiny muted">{assessmentTypes.find(t => t.value === assessment.type)?.label}</div></td>
-                        <td className="small muted">{formatDate(assessment.date)}</td>
-                        <td>{grade ? <Grade value={normalized} size="sm" /> : <span className="muted small">À venir</span>}{grade && grade.scale !== data.rules.gradingScale && <div className="tiny muted">{grade.value}/{grade.scale}</div>}</td>
-                        <td className="small">{assessment.coefficient}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          {grade && <div className="row" style={{ justifyContent: 'flex-end', gap: 2 }}>
-                            <button type="button" className="icon-button" aria-label={`Modifier ${assessment.name}`} onClick={() => setEditId(grade.id)}><Pencil size={15} /></button>
-                            <button type="button" className="icon-button danger" aria-label={`Supprimer ${assessment.name}`} onClick={() => setDeleteId(grade.id)}><Trash2 size={15} /></button>
-                          </div>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="sd-evals">
+              {rows.map(({ assessment, grade }) => {
+                const normalized = grade ? (grade.value / grade.scale) * data.rules.gradingScale : 0;
+                return (
+                  <article key={assessment.id} className="sd-eval">
+                    <div className="sd-eval-top">
+                      <div style={{ minWidth: 0 }}>
+                        <strong style={{ display: 'block' }}>{assessment.name}</strong>
+                        <span className="tiny muted">{formatDate(assessment.date)} • {assessmentTypes.find(t => t.value === assessment.type)?.label} • Coeff {assessment.coefficient}</span>
+                      </div>
+                      <div className="sd-eval-grade">
+                        {grade ? <><Grade value={normalized} size="sm" />{grade.scale !== data.rules.gradingScale && <div className="tiny muted">{grade.value}/{grade.scale}</div>}</> : <span className="muted small">À venir</span>}
+                      </div>
+                    </div>
+                    {grade && (
+                      <div className="row" style={{ justifyContent: 'flex-end', gap: 4 }}>
+                        <button type="button" className="button button-secondary button-sm" aria-label={`Modifier ${assessment.name}`} onClick={() => setEditId(grade.id)}><Pencil size={14} />Modifier</button>
+                        <button type="button" className="icon-button danger" aria-label={`Supprimer ${assessment.name}`} onClick={() => setDeleteId(grade.id)}><Trash2 size={15} /></button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

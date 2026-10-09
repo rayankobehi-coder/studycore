@@ -1,14 +1,17 @@
 'use client';
 import { useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { PageHead, StatCard, EvolutionChart, SubjectBars, DistributionChart, Grade } from '@/components/academic';
+import { StatCard, EvolutionChart, SubjectBars, DistributionChart, Grade } from '@/components/academic';
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { EmptyState } from '@/components/ui/states';
 import { getEngine, getEvolution, getSubjectResults, getSummary } from '@/lib/workspace/selectors';
 import { number } from '@/lib/workspace/dates';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ChartTooltip } from '@/components/academic';
-import { BarChart3, Trophy, TrendingDown, TrendingUp } from 'lucide-react';
+import { BarChart3, Download, Flag, Trophy, TrendingDown, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { exportReport } from '@/lib/workspace/export';
+import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
   const { data } = useWorkspace();
@@ -35,7 +38,12 @@ export default function AnalyticsPage() {
 
   return (
     <AppLayout title="Analytics">
-      <PageHead eyebrow="Analyse" title="Mes performances" description="Une lecture calme de ton parcours : où tu progresses, ce qui demande de l’attention." />
+      <header className="nm-head" style={{ marginBottom: 18 }}>
+        <div style={{ minWidth: 0 }}>
+          <h1>Mes performances</h1>
+          <p>Analyse statistique de tes résultats et tendances académiques. Indicatif, non officiel.</p>
+        </div>
+      </header>
       <section className="stats-grid" aria-label="Indicateurs">
         <StatCard label="Moyenne générale" icon={<BarChart3 size={16} />} value={<span className="num">{number(summary.average)}</span>} unit="/20" />
         <StatCard label="Évolution" tone={delta < 0 ? 'danger' : 'ok'} icon={delta < 0 ? <TrendingDown size={16} /> : <TrendingUp size={16} />} value={<span className="num">{delta >= 0 ? '+' : ''}{number(delta)}</span>} foot={<>depuis le dernier semestre</>} />
@@ -61,6 +69,10 @@ export default function AnalyticsPage() {
             </ResponsiveContainer>
           </div>
         </section>
+      </div>
+      <div className="an-cta">
+        <Button size="lg" onClick={() => exportReport(data)}><Download size={16} />Générer le rapport analytique</Button>
+        <Link href="/goals" className="button button-secondary button-lg"><Flag size={16} />Définir un nouvel objectif de note</Link>
       </div>
       <p className="tiny faint" style={{ marginTop: 22 }}>Analyses indicatives, calculées à partir des notes saisies. Elles ne constituent pas des résultats officiels.</p>
     </AppLayout>

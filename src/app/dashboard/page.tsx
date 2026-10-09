@@ -3,13 +3,12 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { useWorkspace } from '@/components/providers/workspace-provider';
-import { Delta, EvolutionChart, Grade, StatCard, StatusBadge, ProgressBarInline } from '@/components/academic';
+import { Delta, EvolutionChart, Grade, StatusBadge } from '@/components/academic';
 import { Segmented } from '@/components/ui/segmented';
-import { ProgressRing } from '@/components/ui/progress';
 import { EmptyState } from '@/components/ui/states';
 import { getEvolution, getGoalProgress, getRevisionPriorities, getSummary, getUpcomingAssignments } from '@/lib/workspace/selectors';
 import { countdown, number, parseDate } from '@/lib/workspace/dates';
-import { ArrowRight, BookOpen, CheckCircle2, CreditCard, Flame, Lightbulb, Plus, Sparkles, Target, Calculator } from 'lucide-react';
+import { ArrowRight, CalendarClock, Lightbulb, Plus, Target, Calculator } from 'lucide-react';
 
 export default function DashboardPage() {
   const { data } = useWorkspace();
@@ -23,6 +22,8 @@ export default function DashboardPage() {
   const delta = data.previousAverage === null || !summary.hasGrades ? 0 : summary.average - data.previousAverage;
   const creditsPct = summary.totalCredits ? (summary.earnedCredits / summary.totalCredits) * 100 : 0;
   const name = data.profile.firstName || 'toi';
+  const semester = data.semesters.find(s => s.id === data.activeSemesterId);
+  const target = goal?.targetValue ?? 14;
 
   if (!summary.hasGrades && data.subjects.length === 0) {
     return (
@@ -34,115 +35,138 @@ export default function DashboardPage() {
 
   const filteredEvolution = range === 'recent' ? evolution.slice(-2) : evolution;
   const validatedCount = summary.results.filter(r => r.status === 'VALIDATED').length;
+  const subjectCount = data.subjects.length || 1;
+  const validatedPct = (validatedCount / subjectCount) * 100;
   const weakest = [...summary.results].filter(r => r.grades.length).sort((a, b) => a.average - b.average)[0];
+  const recommendation = priorities.length >= 2
+    ? <>Tes deux matières cibles sont <strong>{priorities[0].subjectName}</strong> et <strong>{priorities[1].subjectName}</strong>{priorities[0].next ? ` (${countdown(priorities[0].next.dueDate).toLowerCase()})` : ''}.</>
+    : 'Ajoute des échéances pour recevoir une recommandation.';
 
   return (
     <AppLayout title="Accueil">
-      <section className="hero-band rise" aria-labelledby="hero-title">
-        <div>
-          <p className="eyebrow">Bonjour, {name}</p>
-          <h1 id="hero-title" style={{ color: '#fff' }}>Voici l’état de ton parcours académique.</h1>
-          <p>{summary.hasGrades ? `Ta moyenne est ${number(summary.average)}/20 ${delta >= 0 ? 'et progresse' : 'et recule légèrement'} depuis le dernier semestre. ${weakest ? `${weakest.subjectName} reste le point à travailler.` : ''}` : 'Ajoute tes premières notes pour voir ta moyenne.'}</p>
-          <div className="cta-row" style={{ marginTop: 20 }}>
-            <Link href="/grades/new" className="button button-lg" style={{ background: '#fff', color: '#312e81' }}><Plus size={17} />Ajouter une note</Link>
-            <Link href="/simulator" className="button button-lg" style={{ background: 'rgb(255 255 255 / 0.12)', color: '#fff', border: '1px solid rgb(255 255 255 / 0.3)' }}><Calculator size={17} />Simuler</Link>
+      <div className="dash">
+        <section className="dash-head rise" aria-labelledby="hero-title">
+          <div style={{ minWidth: 0 }}>
+            <span className="dash-chip"><i aria-hidden="true" />{data.profile.formation}</span>
+            <h1 id="hero-title">Bonjour, {name}</h1>
+            <p>Voici l’état de ton parcours académique en temps réel.</p>
           </div>
-        </div>
-        <div className="hero-score" aria-label={`Moyenne générale ${number(summary.average)} sur 20`}>
-          <span>Moyenne générale</span>
-          <strong className="num">{number(summary.average)}</strong>
-          <span>/ 20</span>
-          <div style={{ marginTop: 12 }}>{data.previousAverage !== null && <span className="badge" style={{ background: 'rgb(255 255 255 / 0.14)', color: '#fff', border: 0 }}>{delta >= 0 ? '+' : ''}{number(delta)} depuis le dernier semestre</span>}</div>
-        </div>
-      </section>
+          {semester && <span className="dash-semester">{semester.name}</span>}
+        </section>
 
-      <section className="stats-grid" style={{ marginTop: 18 }} aria-label="Indicateurs clés">
-        <StatCard label="Moyenne générale" icon={<Sparkles size={16} />} value={<span className="num">{number(summary.average)}</span>} unit="/20" foot={<><Delta value={delta} suffix=" depuis le dernier semestre" /></>} />
-        <StatCard label="Crédits" icon={<CreditCard size={16} />} value={<span className="num">{summary.earnedCredits}</span>} unit={`/ ${summary.totalCredits}`} foot={<><ProgressBarInline value={creditsPct} /></>} />
-        <StatCard label="Matières validées" tone="ok" icon={<CheckCircle2 size={16} />} value={<span className="num">{validatedCount}</span>} unit={`/ ${data.subjects.length}`} foot={<>{validatedCount >= data.subjects.length / 2 ? 'Une belle dynamique' : 'Continue, tu avances'}</>} />
-        <StatCard label="Objectif" tone={goalState?.achieved ? 'ok' : 'warn'} icon={<Target size={16} />} value={<span className="num">{number(goal?.targetValue ?? 14)}</span>} unit="/20" foot={<><ProgressBarInline value={goalState?.percent ?? 0} tone={goalState?.achieved ? 'ok' : 'brand'} /></>} />
-      </section>
+        <section className="dash-card dash-hero" aria-label={`Moyenne générale ${number(summary.average)} sur 20`}>
+          <div>
+            <span className="dash-kicker">Moyenne générale</span>
+            <div className="dash-big num">{number(summary.average)}<small>/ 20</small></div>
+            <p className="small muted" style={{ marginTop: 10 }}>
+              {summary.hasGrades ? `${delta >= 0 ? 'Progression constante' : 'Légère baisse'}${data.previousAverage !== null ? ' depuis le dernier semestre' : ''}. ${weakest ? `${weakest.subjectName} reste le point à travailler.` : ''}` : 'Ajoute tes premières notes pour voir ta moyenne.'}
+            </p>
+          </div>
+          {data.previousAverage !== null && <Delta value={delta} suffix=" pts" />}
+        </section>
 
-      <div className="dashboard-grid">
-        <section className="panel" aria-labelledby="evolution-title">
-          <div className="panel-head">
-            <div><h2 id="evolution-title">Évolution de la moyenne</h2><p>Chaque point correspond à une date d’évaluation saisie.</p></div>
+        <section className="dash-stats" aria-label="Indicateurs clés">
+          <div className="dash-stat">
+            <span className="dash-kicker">Crédits ECTS</span>
+            <strong className="num">{summary.earnedCredits}<small>/{summary.totalCredits}</small></strong>
+            <div className="dash-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, creditsPct)}%` }} /></div>
+          </div>
+          <div className="dash-stat">
+            <span className="dash-kicker">Validées</span>
+            <strong className="num">{validatedCount}<small>/{data.subjects.length}</small></strong>
+            <div className="dash-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, validatedPct)}%`, background: 'var(--ok)' }} /></div>
+          </div>
+          <div className="dash-stat">
+            <span className="dash-kicker">Objectif</span>
+            <strong className="num">{number(target)}</strong>
+            <div className="dash-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, goalState?.percent ?? 0)}%`, background: goalState?.achieved ? 'var(--ok)' : 'var(--warn)' }} /></div>
+          </div>
+        </section>
+
+        <section className="dash-callout" aria-labelledby="reco-title">
+          <span className="dash-callout-icon"><Lightbulb size={18} /></span>
+          <div style={{ minWidth: 0 }}>
+            <p className="eyebrow" id="reco-title" style={{ marginBottom: 4 }}>Priorité académique de la semaine</p>
+            <p className="small" style={{ color: 'var(--text)' }}>{recommendation}</p>
+            <Link href="/study-planner" className="text-link small" style={{ marginTop: 8 }}>Voir mon plan de révision <ArrowRight size={14} /></Link>
+          </div>
+        </section>
+
+        <section className="dash-card" aria-labelledby="evolution-title">
+          <div className="dash-section-head">
+            <div style={{ minWidth: 0 }}>
+              <h2 id="evolution-title">Évolution des notes</h2>
+              <p className="small muted">Une valeur par date d’évaluation saisie.</p>
+            </div>
             <Segmented label="Période" value={range} onChange={setRange} options={[{ value: 'all', label: 'Tout' }, { value: 'recent', label: 'Récent' }]} />
           </div>
           <EvolutionChart points={filteredEvolution.map(p => ({ label: p.label, value: p.value }))} target={goal?.targetValue} />
-          <div className="chart-legend"><span><i style={{ background: '#4f46e5' }} />Ta moyenne</span><span><i style={{ background: 'var(--warn)' }} />Objectif {number(goal?.targetValue ?? 14)}</span></div>
+          <div className="chart-legend"><span><i style={{ background: '#4f46e5' }} />Ta moyenne</span><span><i style={{ background: 'var(--warn)' }} />Objectif {number(target)}</span></div>
         </section>
 
-        <section className="panel" aria-labelledby="situation-title">
-          <div className="panel-head"><div><h2 id="situation-title">Situation académique</h2><p>Matières classées par niveau d’attention.</p></div><Link href="/subjects" className="text-link">Voir tout <ArrowRight size={14} /></Link></div>
-          <div className="list">
-            {[...summary.results].filter(r => r.grades.length).sort((a, b) => a.average - b.average).slice(0, 6).map(result => (
-              <Link href={`/subjects/${result.subjectId}`} key={result.subjectId} className="list-item" style={{ padding: '12px 0' }}>
-                <span className="color-bar" style={{ background: data.subjects.find(s => s.id === result.subjectId)?.color ?? 'var(--brand)', alignSelf: 'stretch', width: 4, borderRadius: 4 }} />
-                <div className="list-grow"><div className="list-title">{result.subjectName}</div><div className="tiny muted">Coeff {result.coefficient} · {result.credits} crédits</div></div>
-                <StatusBadge status={result.status} short />
-                <Grade value={result.average} size="sm" />
-              </Link>
-            ))}
-          </div>
-        </section>
+        <div className="dash-two">
+          <section aria-labelledby="deadline-title">
+            <div className="dash-section-head">
+              <h2 id="deadline-title">Prochaines échéances</h2>
+              <Link href="/assignments" className="text-link small">Voir le planning <ArrowRight size={14} /></Link>
+            </div>
+            <div className="stack" style={{ gap: 10, marginTop: 12 }}>
+              {upcoming.length === 0 && <p className="muted small">Aucune échéance à venir. Profite-en pour réviser.</p>}
+              {upcoming.map(item => {
+                const date = parseDate(item.dueDate);
+                const isExam = ['EXAMEN', 'PARTIEL', 'EXAMEN_FINAL', 'RATTRAPAGE'].includes(item.type);
+                const subject = data.subjects.find(s => s.id === item.subjectId);
+                return (
+                  <div key={item.id} className="dash-row">
+                    <span className={`dash-row-icon ${isExam ? 'is-danger' : ''}`}><CalendarClock size={17} /></span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <strong style={{ display: 'block' }}>{subject?.name}</strong>
+                      <span className="small muted">{item.title} · {date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · Coeff {item.coefficient}</span>
+                    </div>
+                    <span className={`badge ${isExam ? 'badge-danger' : 'badge-outline'}`}>{countdown(item.dueDate)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
-        <section className="panel" aria-labelledby="deadline-title">
-          <div className="panel-head"><div><h2 id="deadline-title">Prochaines échéances</h2><p>Examens et devoirs à anticiper.</p></div><Link href="/assignments" className="text-link">Toutes <ArrowRight size={14} /></Link></div>
-          <div className="stack" style={{ gap: 10 }}>
-            {upcoming.length === 0 && <p className="muted">Aucune échéance à venir. Profite-en pour réviser.</p>}
-            {upcoming.map(item => {
-              const date = parseDate(item.dueDate);
-              const isExam = ['EXAMEN', 'PARTIEL', 'EXAMEN_FINAL', 'RATTRAPAGE'].includes(item.type);
-              const subject = data.subjects.find(s => s.id === item.subjectId);
-              return (
-                <div key={item.id} className={`deadline ${isExam ? 'is-exam' : ''}`}>
-                  <div className="date-tile"><b>{date.getDate()}</b><span>{date.toLocaleDateString('fr-FR', { month: 'short' })}</span></div>
-                  <div style={{ minWidth: 0 }}><strong style={{ display: 'block' }}>{subject?.name}</strong><span className="small muted">{item.title}</span><span className="tiny muted" style={{ display: 'block' }}>{isExam ? 'Examen' : 'Devoir'} · Coeff {item.coefficient}</span></div>
-                  <span className={`badge ${isExam ? 'badge-danger' : 'badge-outline'}`}>{countdown(item.dueDate)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <div className="stack">
-          <section className="panel" aria-labelledby="reco-title">
-            <div className="recommend">
-              <span className="recommend-icon"><Lightbulb size={20} /></span>
+          <section aria-labelledby="subjects-title">
+            <div className="dash-section-head">
               <div>
-                <p className="eyebrow" style={{ marginBottom: 4 }}>Recommandation</p>
-                <h2 id="reco-title" style={{ fontSize: '1.02rem' }}>{priorities.length >= 2 ? `Tes deux matières prioritaires cette semaine sont ${priorities[0].subjectName} et ${priorities[1].subjectName}.` : 'Ajoute des échéances pour recevoir une recommandation.'}</h2>
-                <p className="small muted" style={{ marginTop: 6 }}>Basé sur la date de tes évaluations, leur coefficient et ta moyenne actuelle.</p>
-                <Link href="/study-planner" className="text-link" style={{ marginTop: 12 }}>Voir mon plan de révision <ArrowRight size={14} /></Link>
+                <h2 id="subjects-title">Matières & performances</h2>
+                <p className="small muted">Synthèse par matière, la plus fragile en premier.</p>
               </div>
+              <Link href="/subjects" className="text-link small">Toutes <ArrowRight size={14} /></Link>
             </div>
-          </section>
-          <section className="panel" aria-labelledby="progress-title">
-            <div className="panel-head"><div><h2 id="progress-title">Crédits ECTS</h2><p>Progression vers 60 crédits.</p></div></div>
-            <div className="row" style={{ gap: 20 }}>
-              <ProgressRing value={creditsPct} size={112} stroke={9} label="Crédits acquis"><strong className="num" style={{ fontSize: '1.4rem' }}>{summary.earnedCredits}</strong><div className="tiny muted">/ {summary.totalCredits}</div></ProgressRing>
-              <div className="stack" style={{ gap: 8, flex: 1 }}>
-                <span className="small muted">Acquis</span><strong>{summary.earnedCredits} crédits</strong>
-                <span className="small muted">En attente</span><strong>{summary.pendingCredits} crédits</strong>
-              </div>
-            </div>
-          </section>
-          <section className="panel" aria-labelledby="focus-title">
-            <h2 id="focus-title" style={{ marginBottom: 14 }}>Aujourd’hui</h2>
-            <div className="list">
-              {priorities.map((p, i) => (
-                <div key={p.subjectId} className="list-item">
-                  <span className="stat-icon">{i === 0 ? <Flame size={16} /> : <BookOpen size={16} />}</span>
-                  <div className="list-grow"><div className="list-title">{p.subjectName}</div><div className="tiny muted">{p.next ? `${p.next.title} · ${countdown(p.next.dueDate).toLowerCase()}` : 'Aucune échéance proche'}</div></div>
-                  <Link href={`/study-planner`} className="button button-ghost button-sm">Réviser</Link>
-                </div>
+            <div className="stack" style={{ gap: 10, marginTop: 12 }}>
+              {summary.results.filter(r => r.grades.length).sort((a, b) => a.average - b.average).slice(0, 6).map(result => (
+                <Link href={`/subjects/${result.subjectId}`} key={result.subjectId} className="dash-row">
+                  <span className="color-bar" style={{ background: data.subjects.find(s => s.id === result.subjectId)?.color ?? 'var(--brand)', alignSelf: 'stretch', width: 4, borderRadius: 4 }} aria-hidden="true" />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong style={{ display: 'block' }}>{result.subjectName}</strong>
+                    <span className="small muted">Coefficient {result.coefficient} • {result.credits} crédits</span>
+                  </div>
+                  <div className="dash-row-end">
+                    <Grade value={result.average} size="sm" />
+                    <StatusBadge status={result.status} short />
+                  </div>
+                </Link>
               ))}
             </div>
           </section>
         </div>
+
+        <section className="dash-cta" aria-labelledby="boost-title">
+          <span className="dash-callout-icon" style={{ background: 'rgb(255 255 255 / 0.16)', color: '#fff' }}><Target size={18} /></span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 id="boost-title" style={{ color: '#fff', fontSize: '1rem' }}>Besoin d’un coup de boost ?</h2>
+            <p className="small" style={{ color: 'rgb(255 255 255 / 0.82)' }}>Simule l’impact d’une note sur ta moyenne générale.</p>
+          </div>
+          <Link href="/simulator" className="button button-sm" style={{ background: '#fff', color: '#312e81' }}><Calculator size={15} />Simuler</Link>
+        </section>
+
+        {data.isDemo && <p className="small faint" style={{ textAlign: 'center' }}>Données fictives pour la démonstration. Ajoute tes propres notes depuis « Notes & matières ».</p>}
       </div>
-      {data.isDemo && <p className="small faint" style={{ marginTop: 22 }}>Données fictives pour la démonstration. Ajoute tes propres notes depuis « Notes & matières ».</p>}
     </AppLayout>
   );
 }

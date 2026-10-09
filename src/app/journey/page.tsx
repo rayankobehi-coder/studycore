@@ -2,11 +2,13 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { PageHead, Grade, ProgressBarInline } from '@/components/academic';
+import { Grade, ProgressBarInline } from '@/components/academic';
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { getSummary } from '@/lib/workspace/selectors';
 import { number, formatDate } from '@/lib/workspace/dates';
-import { ArrowDown, Check, GraduationCap, Clock, Award } from 'lucide-react';
+import { ArrowDown, Check, GraduationCap, Clock, Award, Download } from 'lucide-react';
+import { exportReport } from '@/lib/workspace/export';
+import { Button } from '@/components/ui/button';
 
 export default function JourneyPage() {
   const { data } = useWorkspace();
@@ -16,7 +18,18 @@ export default function JourneyPage() {
 
   return (
     <AppLayout title="Parcours">
-      <PageHead eyebrow={data.profile.academicYear} title="Parcours académique" description={`${data.profile.formation} · ${data.profile.institution || 'Établissement non renseigné'}`} />
+      <header className="nm-head" style={{ marginBottom: 18 }}>
+        <div style={{ minWidth: 0 }}>
+          <span className="dash-chip"><i aria-hidden="true" />{data.profile.academicYear}</span>
+          <h1 style={{ marginTop: 10 }}>Mon parcours</h1>
+          <p>{data.profile.formation} · {data.profile.institution || 'Établissement non renseigné'}</p>
+        </div>
+      </header>
+      <section className="jr-summary" aria-label="Progression du cursus">
+        <div><span className="dash-kicker">Crédits validés</span><strong className="num">{total.earnedCredits}<small> / {total.totalCredits} ECTS</small></strong></div>
+        <ProgressBarInline value={pct} />
+        <div className="row-between"><span className="small muted">Moyenne cumulée</span><Grade value={total.average} size="md" /></div>
+      </section>
       <div className="split" style={{ alignItems: 'start' }}>
         <div>
           <div className="timeline">
@@ -55,6 +68,9 @@ export default function JourneyPage() {
               </div>
             </article>
           </div>
+        </div>
+        <div className="jr-actions" style={{ gridColumn: '1 / -1' }}>
+          <Button variant="outline" onClick={() => exportReport(data)}><Download size={16} />Télécharger le bilan indicatif</Button>
         </div>
         <aside className="panel stack" style={{ gap: 16 }} aria-label="Repères">
           <h2>Repères</h2>

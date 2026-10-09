@@ -2,18 +2,19 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { PageHead, Grade, ProgressBarInline, StatusBadge } from '@/components/academic';
+import { Grade, ProgressBarInline, StatusBadge } from '@/components/academic';
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { Input, Select } from '@/components/ui/fields';
 import { EmptyState } from '@/components/ui/states';
 import { getSubjectResults, getSummary, simulateSubject } from '@/lib/workspace/selectors';
 import { number } from '@/lib/workspace/dates';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 export default function SemesterSimulatorPage() {
   const { data } = useWorkspace();
   const [objective, setObjective] = useState(14);
   const [coefficient, setCoefficient] = useState(4);
+  const [scenarioId, setScenarioId] = useState<'minimum' | 'realiste' | 'ambition'>('realiste');
   const summary = useMemo(() => getSummary(data), [data]);
   const results = useMemo(() => getSubjectResults(data).filter(r => r.grades.length > 0), [data]);
 
@@ -21,9 +22,9 @@ export default function SemesterSimulatorPage() {
   const totalWeight = results.reduce((sum, r) => sum + r.coefficient, 0);
   const weightedTotal = results.reduce((sum, r) => sum + r.average * r.coefficient, 0);
   const scenarios = [
-    { id: 'minimum', label: 'Minimum', offset: 0, text: 'Atteindre juste l’objectif.' },
-    { id: 'realiste', label: 'Réaliste', offset: 0.5, text: 'Un petit plus, à ta portée.' },
-    { id: 'ambition', label: 'Ambition', offset: 1, text: 'Viser haut, en travaillant fort.' },
+    { id: 'minimum' as const, label: 'Minimum', offset: 0, text: 'Atteindre juste l’objectif.' },
+    { id: 'realiste' as const, label: 'Réaliste', offset: 0.5, text: 'Un petit plus, à ta portée.' },
+    { id: 'ambition' as const, label: 'Ambition', offset: 1, text: 'Viser haut, en travaillant fort.' },
   ];
 
   const plans = scenarios.map(scenario => {
@@ -42,51 +43,77 @@ export default function SemesterSimulatorPage() {
 
   if (data.subjects.length === 0) return <AppLayout title="Objectif semestre"><EmptyState title="Aucune matière pour l’instant." description="Ajoute des matières et leurs notes pour estimer ton objectif." action={<Link href="/subjects" className="button button-primary">Ajouter une matière</Link>} /></AppLayout>;
 
+  const selected = plans.find(p => p.id === scenarioId) ?? plans[1];
+  const semesterName = data.semesters.find(s => s.id === data.activeSemesterId)?.name ?? 'Toute l’année';
+
   return (
     <AppLayout title="Objectif semestre">
-      <Link href="/simulator" className="text-link" style={{ marginBottom: 14 }}><ArrowLeft size={14} />Simulateur</Link>
-      <PageHead eyebrow="Simulation globale" title="Objectif semestre" description="Vois ce qu’il te faut obtenir dans chaque matière pour atteindre ton objectif de moyenne." />
-      <div className="split">
-        <section className="panel stack" style={{ gap: 20 }} aria-labelledby="progress-title">
-          <div className="row-between"><h2 id="progress-title">Ta progression</h2><span className="badge badge-brand">{data.semesters.find(s => s.id === data.activeSemesterId)?.name ?? 'Toute l’année'}</span></div>
-          <div className="row" style={{ alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
-            <div><p className="small muted">Moyenne actuelle</p><Grade value={summary.average} size="lg" /></div>
-            <div><p className="small muted">Objectif</p><span className="big-number" style={{ fontSize: '2.2rem' }}>{number(objective)}<small>/20</small></span></div>
+      <div className="sim">
+        <header className="nm-head">
+          <div style={{ minWidth: 0 }}>
+            <Link href="/simulator" className="text-link small"><ArrowLeft size={14} />Simulateur</Link>
+            <h1 style={{ marginTop: 8 }}>Objectif semestre</h1>
+            <p>Ce qu’il te faut obtenir dans chaque matière pour atteindre ton objectif.</p>
+          </div>
+          <span className="badge badge-brand">{semesterName}</span>
+        </header>
+
+        <nav className="sim-tabs" aria-label="Type de simulation">
+          <Link href="/simulator" className="sim-tab">Par matière</Link>
+          <span className="sim-tab is-active" aria-current="page">Objectif semestre</span>
+        </nav>
+
+        <section className="sim-card" aria-labelledby="progress-title">
+          <span className="dash-kicker" id="progress-title">Projection</span>
+          <div className="row-between" style={{ alignItems: 'flex-end', gap: 12 }}>
+            <div><span className="small muted">Moyenne actuelle</span><div><Grade value={summary.average} size="lg" /></div></div>
+            <div style={{ textAlign: 'right' }}><span className="small muted">Objectif visé</span><div className="num" style={{ fontSize: '1.8rem', fontWeight: 760 }}>{number(objective)}<small style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}> / 20</small></div></div>
           </div>
           <ProgressBarInline value={(summary.average / objective) * 100} tone={summary.average >= objective ? 'ok' : 'brand'} />
           <div className="form-grid">
             <Input label="Objectif de moyenne" type="number" min="0" max="20" step="0.5" value={objective} onChange={e => setObjective(Math.min(20, Math.max(0, Number(e.target.value) || 0)))} />
             <Select label="Coefficient de la prochaine évaluation" value={String(coefficient)} onChange={e => setCoefficient(Number(e.target.value))}>{[1, 2, 3, 4, 5, 6].map(c => <option key={c} value={c}>{c}</option>)}</Select>
           </div>
-          <div className="stack" style={{ gap: 12 }}>
-            <h3>Pour atteindre {number(objective)}</h3>
-            {plans[0].rows.map(({ result, needed, reached }) => (
-              <div key={result.subjectId} className="row-between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-                <div className="row" style={{ gap: 10 }}><span className="dot" style={{ background: data.subjects.find(s => s.id === result.subjectId)?.color }} /><span>{result.subjectName}</span></div>
-                {reached ? <span className="badge badge-success">Déjà atteint</span> : needed !== null && needed <= 20 ? <strong className="num">{number(needed)} min.</strong> : <span className="badge badge-danger">Hors d’atteinte</span>}
-              </div>
-            ))}
+        </section>
+
+        <section className="sim-scenarios" aria-label="Scénarios">
+          {plans.map(plan => (
+            <button type="button" key={plan.id} className={`sim-scenario ${plan.id === scenarioId ? 'is-active' : ''}`} aria-pressed={plan.id === scenarioId} onClick={() => setScenarioId(plan.id)}>
+              <span className="tiny muted" style={{ textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{plan.label}</span>
+              <strong className="num">{number(plan.target)}</strong>
+              <span className={`tiny ${plan.feasible ? 'ok-text' : 'warn-text'}`}>{plan.feasible ? 'Faisable' : 'Exigeant'}</span>
+            </button>
+          ))}
+        </section>
+
+        <section className="sim-card" aria-labelledby="need-title">
+          <div className="nm-card-top">
+            <div><h2 id="need-title">Notes requises par matière</h2><p className="small muted">Scénario {selected.label.toLowerCase()} : {selected.text}</p></div>
+          </div>
+          <div className="sim-needs">
+            {selected.rows.map(({ result, needed, reached }) => {
+              const subject = data.subjects.find(s => s.id === result.subjectId);
+              return (
+                <div key={result.subjectId} className="sim-need" style={{ borderLeftColor: subject?.color ?? 'var(--brand)' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong style={{ display: 'block' }}>{result.subjectName}</strong>
+                    <span className="small muted">Coeff {result.coefficient} • moyenne actuelle {number(result.average)} / 20</span>
+                    <div style={{ marginTop: 8 }}><StatusBadge status={result.status} short /></div>
+                  </div>
+                  <div style={{ textAlign: 'right', flex: 'none' }}>
+                    {reached
+                      ? <span className="ok-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}><CheckCircle2 size={16} />Déjà atteint</span>
+                      : needed !== null && needed <= 20
+                        ? <><strong className="num" style={{ fontSize: '1.4rem', letterSpacing: '-0.03em' }}>{number(needed)}</strong><span className="small muted"> / 20</span></>
+                        : <span className="warn-text" style={{ fontWeight: 700 }}>Hors d’atteinte</span>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
-        <section className="stack" aria-label="Scénarios" style={{ gap: 14 }}>
-          {plans.map(plan => (
-            <article key={plan.id} className={`scenario ${plan.id === 'realiste' ? 'is-highlight' : ''}`}>
-              <div className="row-between"><span className="eyebrow" style={{ marginBottom: 0 }}>{plan.label}</span>{plan.feasible ? <span className="badge badge-success">Faisable</span> : <span className="badge badge-warning">Exigeant</span>}</div>
-              <strong className="num">{number(plan.target)}<span className="small faint"> / 20</span></strong>
-              <p className="small muted">{plan.text}</p>
-              <div className="stack" style={{ gap: 6 }}>
-                {plan.rows.map(r => (
-                  <div key={r.result.subjectId} className="row-between small">
-                    <span>{r.result.subjectName}</span>
-                    <span className="num" style={{ fontWeight: 650 }}>{r.reached ? '✓' : r.needed !== null && r.needed <= 20 ? `${number(r.needed)}` : '—'}</span>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-          <p className="tiny faint">Estimations indicatives : elles supposent que tes autres matières ne changent pas. Aucune note réelle n’est modifiée.</p>
-          <p className="tiny faint">Matières : {results.map(r => <StatusBadge key={r.subjectId} status={r.status} short />).length} suivies.</p>
-        </section>
+
+        <p className="tiny faint">Estimations indicatives : elles supposent que tes autres matières ne changent pas. Aucune note réelle n’est modifiée. Les résultats ne sont pas officiels.</p>
       </div>
     </AppLayout>
   );

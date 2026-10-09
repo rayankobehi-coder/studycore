@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { PageHead, StatusBadge, ProgressBarInline } from '@/components/academic';
+import { StatusBadge, ProgressBarInline } from '@/components/academic';
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,9 @@ export default function StudyPlannerPage() {
   const today = dateKey();
   const sessions = useMemo(() => data.sessions.filter(s => s.date === today).sort((a, b) => a.startTime.localeCompare(b.startTime)), [data.sessions, today]);
   const done = sessions.filter(s => s.completed).length;
+  const plannedMinutes = sessions.reduce((sum, s) => sum + s.duration, 0);
+  const doneMinutes = sessions.filter(s => s.completed).reduce((sum, s) => sum + s.duration, 0);
+  const fmtMinutes = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}` : `${m} min`);
 
   // Timeline: sessions interleaved with the real gaps, which are shown as breaks.
   type Entry = { kind: 'session'; item: (typeof sessions)[number] } | { kind: 'break'; start: string; end: string };
@@ -71,7 +74,31 @@ export default function StudyPlannerPage() {
 
   return (
     <AppLayout title="Révisions">
-      <PageHead eyebrow="Révisions" title="Mon plan de révision" description="Un plan qui met en premier ce qui compte le plus cette semaine : échéance proche, coefficient et niveau actuel." actions={<><Button variant="outline" onClick={() => setAddOpen(true)}><Plus size={16} />Ajouter une session</Button><Button onClick={generatePlan} disabled={priorities.length === 0}><Sparkles size={16} />Générer un plan</Button></>} />
+      <header className="nm-head">
+        <div style={{ minWidth: 0 }}>
+          <span className="dash-chip"><i aria-hidden="true" />Ordonnancement prédictif</span>
+          <h1 style={{ marginTop: 10 }}>Plan de révisions</h1>
+          <p>Un plan qui met en premier ce qui compte cette semaine : échéance proche, coefficient et niveau actuel.</p>
+        </div>
+      </header>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        <Button variant="outline" onClick={() => setAddOpen(true)}><Plus size={16} />Ajouter une session</Button>
+        <Button onClick={generatePlan} disabled={priorities.length === 0}><Sparkles size={16} />Générer un plan</Button>
+      </div>
+
+      {data.subjects.length > 0 && (
+        <section className="sp-goal" aria-label="Objectif quotidien">
+          <div className="row-between" style={{ alignItems: 'flex-start' }}>
+            <div><span className="dash-kicker">Objectif quotidien</span><strong className="num">{done} / {sessions.length}<small> sessions</small></strong></div>
+            <span className="badge badge-brand">{sessions.length ? Math.round((done / sessions.length) * 100) : 0} %</span>
+          </div>
+          <ProgressBarInline value={sessions.length ? (done / sessions.length) * 100 : 0} tone={done === sessions.length && sessions.length > 0 ? 'ok' : 'brand'} />
+          <div className="sp-goal-stats">
+            <div><span className="tiny muted">Temps révisé</span><strong className="num">{fmtMinutes(doneMinutes)} <small>/ {fmtMinutes(plannedMinutes)}</small></strong></div>
+            <div><span className="tiny muted">Priorités</span><strong className="num">{priorities.length} <small>matières</small></strong></div>
+          </div>
+        </section>
+      )}
 
       {data.subjects.length === 0 ? <EmptyState title="Pas encore de révisions à planifier." description="Ajoute des matières et des échéances pour que STUDYCORE établisse tes priorités." action={<Link href="/subjects" className="button button-primary">Ajouter une matière</Link>} /> : (
         <div className="split" style={{ alignItems: 'start' }}>
@@ -79,7 +106,7 @@ export default function StudyPlannerPage() {
             {priorities.map((p, index) => {
               const lvl = level(p.score);
               return (
-                <article key={p.subjectId} className={`panel rise ${index === 0 ? 'is-priority' : ''}`} style={{ display: 'grid', gap: 12, borderColor: index === 0 ? 'var(--danger-line)' : undefined }}>
+                <article key={p.subjectId} className={`sp-card rise ${index === 0 ? 'is-priority' : ''}`}>
                   <div className="row-between">
                     <div className="row" style={{ gap: 10 }}><span className="dot" style={{ background: data.subjects.find(s => s.id === p.subjectId)?.color }} /><h2>{p.subjectName}</h2></div>
                     <span className={`badge ${lvl.badge}`}>{lvl.label}</span>
@@ -100,7 +127,7 @@ export default function StudyPlannerPage() {
             <p className="tiny faint row" style={{ gap: 6 }}><HelpCircle size={14} />Les priorités sont des suggestions de révision. Elles ne modifient ni tes notes ni tes crédits.</p>
           </section>
 
-          <section className="panel" aria-labelledby="today-title">
+          <section className="sp-card" aria-labelledby="today-title">
             <div className="panel-head">
               <div><h2 id="today-title">Aujourd’hui</h2><p>{sessions.length ? `${done} / ${sessions.length} sessions terminées` : 'Aucune session prévue'}</p></div>
               <span className="badge badge-brand">{new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</span>

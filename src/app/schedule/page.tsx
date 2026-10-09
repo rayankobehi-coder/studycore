@@ -52,6 +52,27 @@ export default function SchedulePage() {
     );
   }
 
+  const dayList = (
+    <section className="tl" aria-label="Programme du jour">
+      {dayEvents.length === 0 && <div className="empty-state empty-compact"><p>Rien de prévu ce jour-là. Un bon moment pour réviser.</p></div>}
+      {dayEvents.map(event => {
+        const exam = event.type === 'EXAM';
+        return (
+          <button type="button" key={event.id} className={`tl-item ${exam ? 'is-exam' : ''}`} onClick={() => setSelected(event)}>
+            <span className="tl-time num">{event.startTime}<small>{event.endTime}</small></span>
+            <span className="tl-card">
+              <span><span className={`badge ${exam ? 'badge-danger' : 'badge-outline'}`}>{eventLabel[event.type]}</span></span>
+              <strong>{event.title}</strong>
+              <span className="small muted">{event.description ?? eventLabel[event.type]}</span>
+              {event.room && <span className="tl-room"><MapPin size={14} aria-hidden="true" />{event.room}</span>}
+            </span>
+          </button>
+        );
+      })}
+      <button type="button" className="tl-add" onClick={() => setAddOpen(true)}><CalendarPlus size={16} />Ajouter un événement personnalisé</button>
+    </section>
+  );
+
   return (
     <AppLayout title="Planning">
       <PageHead eyebrow="Calendrier" title="Emploi du temps" description="Cours, examens et révisions au même endroit. Les examens sont signalés par une trame rouge." actions={<Button onClick={() => setAddOpen(true)}><CalendarPlus size={16} />Ajouter un événement</Button>} />
@@ -69,7 +90,25 @@ export default function SchedulePage() {
       </div>
 
       {view === 'week' && (
-        <div className="week" role="table" aria-label={`Semaine du ${formatDate(weekStart)}`}>
+        <div className="wk-strip" role="group" aria-label="Jours de la semaine">
+          {days.map(day => {
+            const key = dateKey(day);
+            const count = events.filter(e => e.date === key).length;
+            const active = key === anchor;
+            return (
+              <button type="button" key={key} className={`wk-day ${active ? 'is-active' : ''} ${key === dateKey() ? 'is-today' : ''}`} onClick={() => setAnchor(key)} aria-pressed={active}>
+                <span className="tiny">{new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(day)}</span>
+                <b className="num">{day.getDate()}</b>
+                <i aria-hidden="true" className={count ? 'has-dot' : ''} />
+                <span className="sr-only">{count} événement(s)</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {view === 'week' && (
+        <div className="week week-desktop" role="table" aria-label={`Semaine du ${formatDate(weekStart)}`}>
           <div className="week-head" role="row">
             <div role="columnheader" aria-label="Heure" style={{ background: 'var(--surface-2)' }} />
             {days.map(day => {
@@ -91,6 +130,8 @@ export default function SchedulePage() {
           })}
         </div>
       )}
+
+      {view === 'week' && <div className="wk-mobile">{dayList}</div>}
 
       {view === 'month' && (
         <div className="month" role="grid" aria-label={title}>
@@ -114,16 +155,7 @@ export default function SchedulePage() {
 
       {view === 'day' && (
         <div className="split" style={{ gridTemplateColumns: 'minmax(0,1fr) 320px' }}>
-          <section className="day-list" aria-label="Programme du jour">
-            {dayEvents.length === 0 && <div className="empty-state empty-compact"><p>Rien de prévu ce jour-là. Un bon moment pour réviser.</p></div>}
-            {dayEvents.map(event => (
-              <button type="button" key={event.id} className="day-item" style={{ borderLeftColor: event.type === 'EXAM' ? 'var(--danger)' : 'var(--brand)', textAlign: 'left', cursor: 'pointer' }} onClick={() => setSelected(event)}>
-                <span className="session-time num">{event.startTime}<br /><span className="faint">{event.endTime}</span></span>
-                <span style={{ minWidth: 0 }}><strong style={{ display: 'block' }}>{event.title}</strong><span className="small muted">{event.description ?? eventLabel[event.type]}</span></span>
-                <span className={`badge ${event.type === 'EXAM' ? 'badge-danger' : 'badge-outline'}`}>{eventLabel[event.type]}</span>
-              </button>
-            ))}
-          </section>
+          {dayList}
           <aside className="panel stack" style={{ gap: 12 }}>
             <h2>Le jour en un coup d’œil</h2>
             <p className="small muted">{dayEvents.length} événement(s) · {dayEvents.filter(e => e.type === 'EXAM').length} examen(s)</p>
