@@ -11,9 +11,8 @@ import { Dialog } from '@/components/ui/dialog';
 import { Input, Select, Toggle } from '@/components/ui/fields';
 import { Segmented } from '@/components/ui/segmented';
 import { getGoalProgress } from '@/lib/workspace/selectors';
-import { number } from '@/lib/workspace/dates';
 import { AcademicRuleSet } from '@/lib/engine/AcademicRuleSet';
-import { Bell, Moon, LogOut, Lock, ShieldCheck, Target, Pencil, GraduationCap, School, CalendarDays, Settings2 } from 'lucide-react';
+import { LogOut, Lock, ShieldCheck, Target, Pencil, Settings2 } from 'lucide-react';
 import type { FormationType } from '@/lib/types';
 
 const formationLabels: Record<FormationType, string> = { COLLEGE: 'Collège', LYCEE_GENERAL: 'Lycée général', LYCEE_TECHNO: 'Lycée technologique', LYCEE_PRO: 'Lycée professionnel', BTS: 'BTS', LICENCE: 'Licence', MASTER: 'Master', FORMATION_PRO: 'Formation professionnelle', AUTRE: 'Autre' };

@@ -3,14 +3,13 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { useWorkspace } from '@/components/providers/workspace-provider';
-import { Delta, EvolutionChart, Grade, StatCard, StatusBadge, ProgressBarInline, statusMeta } from '@/components/academic';
+import { Delta, EvolutionChart, Grade, StatCard, StatusBadge, ProgressBarInline } from '@/components/academic';
 import { Segmented } from '@/components/ui/segmented';
-import { Button } from '@/components/ui/button';
 import { ProgressRing } from '@/components/ui/progress';
 import { EmptyState } from '@/components/ui/states';
 import { getEvolution, getGoalProgress, getRevisionPriorities, getSummary, getUpcomingAssignments } from '@/lib/workspace/selectors';
-import { countdown, daysUntil, formatDate, number, parseDate } from '@/lib/workspace/dates';
-import { AlertTriangle, ArrowRight, BookOpen, CalendarClock, CheckCircle2, CreditCard, Flame, Lightbulb, Plus, Sparkles, Target, Calculator } from 'lucide-react';
+import { countdown, number, parseDate } from '@/lib/workspace/dates';
+import { ArrowRight, BookOpen, CheckCircle2, CreditCard, Flame, Lightbulb, Plus, Sparkles, Target, Calculator } from 'lucide-react';
 
 export default function DashboardPage() {
   const { data } = useWorkspace();

@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowRight, Calculator, CalendarDays, CreditCard, LineChart, Brain, GraduationCap, ShieldCheck, Route, Play, Target, BookOpen, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Calculator, CalendarDays, CreditCard, LineChart, Brain, GraduationCap, ShieldCheck, Play, CheckCircle2 } from 'lucide-react';
 import { Brand } from '@/components/brand/brand';
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { Button } from '@/components/ui/button';
@@ -132,7 +132,7 @@ export default function LandingPage() {
 
       <footer style={{ borderTop: '1px solid var(--line)', padding: '28px clamp(18px, 5vw, 64px)', display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <Brand compact href="/" />
-        <p className="small faint">Résultats indicatifs, non officiels. Vérifie toujours tes résultats auprès de ton établissement. · <Link href="/resources" className="text-link">Ressources</Link></p>
+        <p className="small faint">Résultats indicatifs, non officiels. Vérifie toujours tes résultats auprès de ton établissement. · <Link href="/resources" className="text-link">Ressources</Link> · <Link href="/mentions-legales" className="text-link">Mentions légales</Link> · <Link href="/confidentialite" className="text-link">Confidentialité</Link></p>
       </footer>
     </div>
   );

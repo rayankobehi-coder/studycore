@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, GraduationCap, Calculator, Route, CreditCard, CalendarDays, ClipboardList, Brain, Target, BarChart3, BookOpen, Bell, Settings, UserRound, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, Calculator, Route, CreditCard, CalendarDays, ClipboardList, Brain, Target, BarChart3, BookOpen, Bell, Settings, UserRound, Cloud, CloudOff, RefreshCw, HelpCircle } from 'lucide-react';
 import { Brand } from '@/components/brand/brand';
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { getNotifications } from '@/lib/workspace/selectors';
@@ -23,6 +23,7 @@ export const footerNav = [
   { href: '/notifications', label: 'Notifications', icon: Bell },
   { href: '/settings', label: 'Paramètres', icon: Settings },
   { href: '/profile', label: 'Profil', icon: UserRound },
+  { href: '/aide', label: 'Aide', icon: HelpCircle },
 ];
 
 export function isActive(pathname: string, href: string) {

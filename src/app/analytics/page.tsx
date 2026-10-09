@@ -1,7 +1,7 @@
 'use client';
 import { useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { PageHead, StatCard, Delta, EvolutionChart, SubjectBars, DistributionChart, Grade } from '@/components/academic';
+import { PageHead, StatCard, EvolutionChart, SubjectBars, DistributionChart, Grade } from '@/components/academic';
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { EmptyState } from '@/components/ui/states';
 import { getEngine, getEvolution, getSubjectResults, getSummary } from '@/lib/workspace/selectors';

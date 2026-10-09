@@ -12,7 +12,7 @@ import { getSubjectResults, simulateSubject } from '@/lib/workspace/selectors';
 import { formatDate, number } from '@/lib/workspace/dates';
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ChartTooltip } from '@/components/academic';
-import { ArrowRight, Calculator, Target, RotateCcw, FlaskConical } from 'lucide-react';
+import { ArrowRight, Target, RotateCcw, FlaskConical } from 'lucide-react';
 
 export default function SimulatorPage() {
   return <Suspense fallback={null}><Simulator /></Suspense>;

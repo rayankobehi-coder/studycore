@@ -48,6 +48,7 @@ export async function updateSession(request: NextRequest) {
     '/settings',
     '/goals',
     '/journey',
+    '/aide',
     '/notifications',
     '/onboarding',
   ];

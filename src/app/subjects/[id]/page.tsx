@@ -1,21 +1,19 @@
 'use client';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { EvolutionChart, Grade, StatusBadge, ProgressBarInline, statusMeta } from '@/components/academic';
 import { EditGradeDialog, ConfirmDialog, assessmentTypes } from '@/components/forms/academic-dialogs';
 import { useWorkspace } from '@/components/providers/workspace-provider';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/states';
 import { getEvolution, getSubjectResults, simulateSubject } from '@/lib/workspace/selectors';
-import { countdown, formatDate, number, parseDate } from '@/lib/workspace/dates';
+import { countdown, formatDate, number } from '@/lib/workspace/dates';
 import { ArrowLeft, Calculator, Pencil, Plus, Trash2, Target, TrendingUp, AlertTriangle, CalendarClock, Star } from 'lucide-react';
 
 export default function SubjectDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const router = useRouter();
   const { data, update } = useWorkspace();
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);

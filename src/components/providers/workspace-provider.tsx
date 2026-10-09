@@ -95,7 +95,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       }
     }
     void hydrate();
-    return () => { active = false; timers.current.forEach(clearTimeout); };
+    const pending = timers.current;
+    return () => { active = false; pending.forEach(clearTimeout); };
   }, []);
 
   useEffect(() => {
@@ -162,7 +163,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return commit(next, message);
   }, [commit, toast]);
   const replace = useCallback((next: Workspace, message?: string) => commit(next, message), [commit]);
-  const startDemo = useCallback(() => { document.cookie = 'studycore_demo=true; path=/; max-age=86400; SameSite=Lax'; window.location.assign('/dashboard'); }, []);
+  // Full navigation on purpose: the demo cookie must be read by the server proxy on the next request.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  const startDemo = useCallback(() => { document.cookie = 'studycore_demo=true; path=/; max-age=86400; SameSite=Lax'; window.location.href = '/dashboard'; }, []);
   const signOut = useCallback(async () => {
     const client = getSupabaseClient();
     if (client && userId) {
@@ -171,7 +174,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(storageKey.current);
     }
     document.cookie = 'studycore_demo=; path=/; max-age=0; SameSite=Lax';
-    window.location.assign('/login');
+    // Full navigation on purpose: clears the client session state.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = '/login';
   }, [toast, userId]);
   const retrySync = useCallback(() => window.location.reload(), []);
   const value = useMemo(() => ({ data, loaded, update, replace, toast, syncStatus, syncError, userId, theme, setTheme, startDemo, signOut, retrySync }), [data, loaded, update, replace, toast, syncStatus, syncError, userId, theme, setTheme, startDemo, signOut, retrySync]);

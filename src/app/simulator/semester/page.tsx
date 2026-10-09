@@ -6,9 +6,9 @@ import { PageHead, Grade, ProgressBarInline, StatusBadge } from '@/components/ac
 import { useWorkspace } from '@/components/providers/workspace-provider';
 import { Input, Select } from '@/components/ui/fields';
 import { EmptyState } from '@/components/ui/states';
-import { getEngine, getSubjectResults, getSummary, simulateSubject } from '@/lib/workspace/selectors';
+import { getSubjectResults, getSummary, simulateSubject } from '@/lib/workspace/selectors';
 import { number } from '@/lib/workspace/dates';
-import { ArrowLeft, Target } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function SemesterSimulatorPage() {
   const { data } = useWorkspace();
@@ -16,7 +16,6 @@ export default function SemesterSimulatorPage() {
   const [coefficient, setCoefficient] = useState(4);
   const summary = useMemo(() => getSummary(data), [data]);
   const results = useMemo(() => getSubjectResults(data).filter(r => r.grades.length > 0), [data]);
-  const engine = getEngine(data);
 
   // For each subject, the average it must reach so that the whole semester hits the objective (others unchanged).
   const totalWeight = results.reduce((sum, r) => sum + r.coefficient, 0);

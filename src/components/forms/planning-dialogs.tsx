@@ -5,7 +5,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input, Select } from '@/components/ui/fields';
 import { useWorkspace } from '@/components/providers/workspace-provider';
-import { uid, dateKey, minutes, timeFromMinutes } from '@/lib/workspace/dates';
+import { uid, dateKey, minutes } from '@/lib/workspace/dates';
 import { assessmentTypes } from './academic-dialogs';
 import type { AssessmentType, ScheduleEventType } from '@/lib/types';
 

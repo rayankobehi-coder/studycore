@@ -10,7 +10,7 @@ import { Select, Input } from '@/components/ui/fields';
 import { EmptyState } from '@/components/ui/states';
 import { getRevisionPriorities } from '@/lib/workspace/selectors';
 import { countdown, dateKey, minutes, timeFromMinutes, uid, number } from '@/lib/workspace/dates';
-import { Brain, Check, Clock, Coffee, Plus, Sparkles, Target, Undo2, Timer, HelpCircle } from 'lucide-react';
+import { Check, Clock, Coffee, Plus, Sparkles, Target, Undo2, Timer, HelpCircle } from 'lucide-react';
 import type { Workspace } from '@/lib/workspace/types';
 
 function level(score: number) {
