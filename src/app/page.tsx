@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Sparkles,
   GraduationCap,
@@ -91,7 +92,7 @@ export default function HomePage() {
       <header className="fixed top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-lg">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-indigo-600" />
+            <Image src="/images/logo.png" alt="" width={38} height={38} className="h-9 w-9 rounded-lg object-contain" priority />
             <span className="text-lg font-bold text-gray-900">STUDYCORE</span>
           </Link>
           <nav className="hidden items-center gap-8 md:flex">
@@ -300,7 +301,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-indigo-600" />
+              <Image src="/images/logo.png" alt="" width={34} height={34} className="h-8 w-8 rounded-lg object-contain" />
               <span className="font-bold text-gray-900">STUDYCORE</span>
             </div>
             <p className="text-sm text-gray-500">

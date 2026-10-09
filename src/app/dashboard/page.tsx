@@ -1,227 +1,170 @@
 'use client';
 
+import Link from 'next/link';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
 import {
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Calendar,
-  Target,
+  ArrowRight,
+  BellRing,
   BookOpen,
-  Award,
-  Clock,
+  CalendarDays,
+  CheckCircle2,
+  CircleHelp,
+  CreditCard,
+  GraduationCap,
+  Sparkles,
+  TrendingUp,
 } from 'lucide-react';
+
+const subjects = [
+  { name: 'Algorithmique', detail: 'Coefficient 4 · 6 crédits', average: '14.2', state: 'VALIDÉE ✓', color: 'green' },
+  { name: 'Réseaux', detail: 'Coefficient 3 · 4 crédits', average: '13.8', state: 'VALIDÉE ✓', color: 'green' },
+  { name: 'Développement Web', detail: 'Coefficient 3 · 5 crédits', average: '15.1', state: 'VALIDÉE ✓', color: 'green' },
+  { name: 'Base de données', detail: 'Coefficient 3 · 4 crédits', average: '8.7', state: 'À SURVEILLER', color: 'blue' },
+  { name: 'Mathématiques', detail: 'Coefficient 2 · 3 crédits', average: '7.9', state: 'À RISQUE', color: 'red' },
+];
+
+const quickLinks = [
+  { href: '/assignments', icon: CalendarDays, title: 'Échéances', detail: 'Examens et devoirs à venir' },
+  { href: '/credits', icon: CreditCard, title: 'Crédits ECTS', detail: '42 crédits validés sur 60' },
+  { href: '/study-planner', icon: BookOpen, title: 'Plan de révisions', detail: 'Organiser mes sessions' },
+  { href: '/analytics', icon: TrendingUp, title: 'Performances', detail: 'Voir mon évolution' },
+  { href: '/pathway', icon: GraduationCap, title: 'Mon parcours', detail: 'Suivre mes semestres' },
+  { href: '/resources', icon: CircleHelp, title: 'Ressources', detail: 'Cours et fiches utiles' },
+];
 
 export default function DashboardPage() {
   return (
     <AppLayout>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Bonjour Rayan 👋</h1>
-        <p className="mt-1 text-gray-500">Voici ton état académique</p>
+      <div className="home-heading">
+        <div>
+          <Badge variant="info">BTS Informatique · 2026-2027</Badge>
+          <h1 className="mt-3 text-2xl font-bold">Bonjour, Alex 👋</h1>
+          <p className="mt-1 text-sm text-gray-500">Voici l&apos;état de ton parcours académique en temps réel.</p>
+        </div>
+        <span className="semester-label">Semestre 2</span>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
+      <section className="home-stats" aria-label="Résumé académique">
+        <Card className="home-average">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Moyenne générale</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">14.27</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-green-600">+0.8</span>
-                </div>
+                <p className="eyebrow">MOYENNE GÉNÉRALE</p>
+                <p className="mt-1 text-2xl font-bold">14.27 <span className="text-sm font-normal text-gray-500">/ 20</span></p>
+                <span className="trend-pill"><TrendingUp size={13} /> +0.8 pts</span>
               </div>
-              <div className="rounded-full bg-indigo-50 p-3">
-                <Award className="h-6 w-6 text-indigo-600" />
-              </div>
+              <div className="metric-icon"><GraduationCap size={22} /></div>
             </div>
+            <p className="mt-3 text-xs text-gray-500"><CheckCircle2 size={13} className="mr-1 inline text-emerald-600" /> Progression constante depuis le Semestre 1</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Crédits</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">42/60</p>
-                <Progress value={70} className="mt-2" />
-              </div>
-              <div className="rounded-full bg-green-50 p-3">
-                <Award className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
+          <CardContent className="p-4">
+            <p className="eyebrow">CRÉDITS ECTS</p>
+            <p className="mt-1 text-xl font-bold">42<span className="text-sm font-medium text-gray-500">/60</span></p>
+            <Progress value={70} className="mt-3" />
+            <p className="mt-2 text-xs text-gray-500">70% acquis</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Assiduité</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">86%</p>
-                <Progress value={86} className="mt-2" />
-              </div>
-              <div className="rounded-full bg-blue-50 p-3">
-                <Clock className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
+          <CardContent className="p-4">
+            <p className="eyebrow">UNITÉS VALIDÉES</p>
+            <p className="mt-1 text-xl font-bold">8<span className="text-sm font-medium text-gray-500">/10</span></p>
+            <Progress value={80} className="mt-3 [&>div]:bg-emerald-400" />
+            <p className="mt-2 text-xs text-gray-500">80% acquis</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Objectif</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">14/20</p>
-                <Progress value={82} className="mt-2" />
-              </div>
-              <div className="rounded-full bg-yellow-50 p-3">
-                <Target className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
+          <CardContent className="p-4">
+            <p className="eyebrow">OBJECTIF</p>
+            <p className="mt-1 text-xl font-bold">14.00</p>
+            <Progress value={82} className="mt-3 [&>div]:bg-violet-400" />
+            <p className="mt-2 text-xs font-medium text-indigo-600">+0.27 dépassé</p>
           </CardContent>
         </Card>
+      </section>
+
+      <div className="notice-strip">
+        <span className="notice-icon"><BellRing size={16} /></span>
+        <div><strong>Priorité académique de la semaine</strong><span>Tes deux matières cibles sont Algorithmique et Base de données pour valider l&apos;UE.</span></div>
+        <Link href="/study-planner" aria-label="Voir le plan de révisions"><ArrowRight size={18} /></Link>
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        {/* Évolution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-indigo-600" />
-              Évolution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-2 h-32">
-              {[12.5, 13.2, 12.8, 13.5, 14.0, 13.7, 14.27].map((val, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs text-gray-500">{val.toFixed(1)}</span>
-                  <div
-                    className="w-full rounded-t-md bg-indigo-500 transition-all"
-                    style={{ height: `${(val / 20) * 100}%` }}
-                  />
-                  <span className="text-xs text-gray-400">S{i + 1}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <section className="dashboard-chart-panel">
+        <div className="section-heading">
+          <div><h2>Évolution des notes</h2><p>Trajectoire continue du cycle</p></div>
+          <Link href="/analytics" className="text-sm font-medium text-indigo-600">Voir l&apos;analyse <ArrowRight size={14} className="ml-1 inline" /></Link>
+        </div>
+        <div className="grade-chart" role="img" aria-label="Évolution de la moyenne de 13.40 à 14.27">
+          <div className="chart-guides"><span>15</span><span>10</span></div>
+          <svg viewBox="0 0 720 155" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="grade-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5141ef" stopOpacity=".2" /><stop offset="1" stopColor="#5141ef" stopOpacity="0" /></linearGradient></defs>
+            <path d="M 24 112 C 120 105, 160 89, 238 91 S 365 68, 434 73 S 568 53, 696 32 L 696 145 L 24 145 Z" fill="url(#grade-fill)" />
+            <path d="M 24 112 C 120 105, 160 89, 238 91 S 365 68, 434 73 S 568 53, 696 32" fill="none" stroke="#4938ed" strokeWidth="3" />
+            {[['24','112'], ['238','91'], ['434','73'], ['696','32']].map(([cx, cy]) => <circle key={cx} cx={cx} cy={cy} r="5" fill="#fff" stroke="#4938ed" strokeWidth="3" />)}
+          </svg>
+          <div className="chart-values"><span>13.40</span><span>13.66</span><span>13.80</span><strong>14.27</strong></div>
+          <div className="chart-dates"><span>Oct 2026</span><span>Déc 2026</span><span>Fév 2027</span><span>Aujourd&apos;hui</span></div>
+        </div>
+      </section>
 
-        {/* À surveiller */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              À surveiller
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-red-800">Base de données</p>
-                  <p className="text-sm text-red-600">Moyenne : 8.5/20 · Coeff 3</p>
-                </div>
-                <Badge variant="danger">Non validée</Badge>
-              </div>
-            </div>
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-yellow-800">Algorithmique</p>
-                  <p className="text-sm text-yellow-600">Moyenne : 9.2/20 · Coeff 4</p>
-                </div>
-                <Badge variant="warning">À risque</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <section className="dashboard-next">
+        <div className="section-heading">
+          <div><h2>Prochaines échéances</h2><p>Prépare tes prochains rendez-vous</p></div>
+          <Link href="/assignments" className="text-sm font-medium text-indigo-600">Voir le planning</Link>
+        </div>
+        <div className="next-list">
+          <Link href="/assignments" className="next-item">
+            <span className="next-symbol urgent"><CalendarDays size={17} /></span>
+            <span className="next-copy"><strong>Examen Algorithmique</strong><small>Coeff 4 · Épreuve écrite finale</small></span>
+            <Badge variant="danger">Dans 3 jours</Badge>
+          </Link>
+          <Link href="/assignments" className="next-item">
+            <span className="next-symbol info"><BookOpen size={17} /></span>
+            <span className="next-copy"><strong>Projet Base de données</strong><small>Coeff 3 · Rendu modèle SQL</small></span>
+            <Badge variant="info">Dans 5 jours</Badge>
+          </Link>
+        </div>
+      </section>
 
-        {/* Prochains examens */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-indigo-600" />
-              Prochains examens
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-red-50 p-2">
-                  <Calendar className="h-4 w-4 text-red-500" />
-                </div>
-                <div>
-                  <p className="font-medium">Algorithmique</p>
-                  <p className="text-sm text-gray-500">Dans 3 jours</p>
-                </div>
-              </div>
-              <Badge variant="danger">Exam</Badge>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-orange-50 p-2">
-                  <Calendar className="h-4 w-4 text-orange-500" />
-                </div>
-                <div>
-                  <p className="font-medium">Réseaux</p>
-                  <p className="text-sm text-gray-500">Dans 8 jours</p>
-                </div>
-              </div>
-              <Badge variant="warning">Exam</Badge>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-green-50 p-2">
-                  <Calendar className="h-4 w-4 text-green-500" />
-                </div>
-                <div>
-                  <p className="font-medium">Anglais</p>
-                  <p className="text-sm text-gray-500">Dans 14 jours</p>
-                </div>
-              </div>
-              <Badge variant="success">Oral</Badge>
-            </div>
-          </CardContent>
-        </Card>
+      <section className="dashboard-subjects">
+        <div className="section-heading">
+          <div><h2>Matières & Performances</h2><p>Synthèse semestrielle par unité</p></div>
+          <Link href="/subjects" className="text-sm font-medium text-indigo-600">Tout voir <ArrowRight size={14} className="ml-1 inline" /></Link>
+        </div>
+        <div className="dashboard-subject-list">
+          {subjects.map((subject) => (
+            <Link href="/subjects" className="dashboard-subject-row" key={subject.name}>
+              <span className="subject-meta"><strong>{subject.name}</strong><small>{subject.detail}</small></span>
+              <span className="subject-score"><strong className={`score-${subject.color}`}>{subject.average}</strong><small>/20</small></span>
+              <Badge variant={subject.color === 'green' ? 'success' : subject.color === 'blue' ? 'info' : 'danger'}>{subject.state}</Badge>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-        {/* Objectif */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-indigo-600" />
-              Objectif
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <p className="text-sm font-medium text-gray-500">Tu vises 14/20</p>
-              <div className="mt-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Progression</span>
-                  <span className="font-medium">82%</span>
-                </div>
-                <Progress value={82} className="mt-1" />
-              </div>
-            </div>
-            <div className="rounded-lg bg-indigo-50 p-4">
-              <p className="text-sm text-indigo-700">
-                Il te reste 4 évaluations cette session. Tu dois maintenir une moyenne
-                d&apos;au moins 13.5 pour atteindre ton objectif.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="dashboard-boost">
+        <span><Sparkles size={19} /></span>
+        <div><strong>Besoin d&apos;un coup de boost ?</strong><p>Simule l&apos;impact d&apos;une note cible sur ta moyenne générale.</p></div>
+        <Link href="/simulator" aria-label="Ouvrir le simulateur"><ArrowRight size={19} /></Link>
       </div>
+
+      <section className="quick-links">
+        <div className="section-heading"><div><h2>Ton espace StudyCore</h2><p>Tous les outils pour avancer à ton rythme</p></div></div>
+        <div className="quick-link-grid">
+          {quickLinks.map(({ href, icon: Icon, title, detail }) => (
+            <Link href={href} key={href} className="quick-link-card">
+              <span><Icon size={18} /></span><strong>{title}</strong><small>{detail}</small><ArrowRight size={15} className="quick-arrow" />
+            </Link>
+          ))}
+        </div>
+      </section>
     </AppLayout>
   );
 }

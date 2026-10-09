@@ -1,164 +1,50 @@
 'use client';
 
+import { useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  BarChart3,
-  TrendingUp,
-  TrendingDown,
-  ArrowUp,
-  ArrowDown,
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowUpRight, Award, Download, Flag, Lightbulb, Sparkles, TrendingUp } from 'lucide-react';
 
-const subjectPerformance = [
-  { name: 'Anglais', average: 16.2, trend: 'up', color: 'text-green-600', bg: 'bg-green-50' },
-  { name: 'Gestion', average: 14.8, trend: 'up', color: 'text-green-600', bg: 'bg-green-50' },
-  { name: 'Réseaux', average: 13.9, trend: 'up', color: 'text-green-600', bg: 'bg-green-50' },
-  { name: 'Algorithmique', average: 11.8, trend: 'down', color: 'text-yellow-600', bg: 'bg-yellow-50' },
-  { name: 'Base de données', average: 8.5, trend: 'down', color: 'text-red-600', bg: 'bg-red-50' },
-  { name: 'Mathématiques', average: 7.8, trend: 'down', color: 'text-red-600', bg: 'bg-red-50' },
+const performance = [
+  { name: 'Anglais Professionnel', value: 16.4, color: 'green' },
+  { name: 'Développement Web & APIs', value: 15.1, color: 'green' },
+  { name: 'Algorithmique Avancée', value: 14.2, color: 'green' },
+  { name: 'Architecture Réseaux', value: 13.8, color: 'green' },
+  { name: 'Bases de Données Relationnelles', value: 8.7, color: 'blue' },
+  { name: 'Mathématiques Discrètes', value: 7.9, color: 'red' },
 ];
-
-const evolutionData = [
-  { month: 'Sept', average: 11.2 },
-  { month: 'Oct', average: 12.5 },
-  { month: 'Nov', average: 11.8 },
-  { month: 'Déc', average: 13.2 },
-  { month: 'Jan', average: 14.0 },
-  { month: 'Fév', average: 13.5 },
-  { month: 'Mar', average: 14.27 },
-];
-
 export default function AnalyticsPage() {
-  const maxAverage = Math.max(...evolutionData.map((d) => d.average));
-
+  const [period, setPeriod] = useState('Semestre 2');
   return (
     <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
-        <p className="mt-1 text-gray-500">Analyse détaillée de tes performances</p>
+      <div className="screen-heading">
+        <div><Badge variant="info">● Promotion L3 Informatique</Badge><h1>Mes Performances</h1><p>Analyse statistique de tes résultats et tendances académiques.</p></div>
+        <span className="data-updated"><TrendingUp size={13} /> Mis à jour hier</span>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Evolution Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-indigo-600" />
-              Évolution de la moyenne générale
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-3 h-48">
-              {evolutionData.map((point, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">
-                    {point.average.toFixed(1)}
-                  </span>
-                  <div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-indigo-500 to-indigo-400 transition-all hover:from-indigo-600"
-                    style={{ height: `${(point.average / maxAverage) * 100}%` }}
-                  />
-                  <span className="text-xs text-gray-400">{point.month}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Forces */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
-              Forces
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {subjectPerformance
-              .filter((s) => s.average >= 12)
-              .map((subject) => (
-                <div
-                  key={subject.name}
-                  className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <ArrowUp className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">{subject.name}</span>
-                  </div>
-                  <span className="font-bold text-green-700">
-                    {subject.average.toFixed(1)}
-                  </span>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-
-        {/* Faiblesses */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5 text-red-600" />
-              Faiblesses
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {subjectPerformance
-              .filter((s) => s.average < 12)
-              .map((subject) => (
-                <div
-                  key={subject.name}
-                  className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <ArrowDown className="h-4 w-4 text-red-500" />
-                    <span className="font-medium">{subject.name}</span>
-                  </div>
-                  <span className="font-bold text-red-700">
-                    {subject.average.toFixed(1)}
-                  </span>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-
-        {/* Performance par matière */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-indigo-600" />
-              Performance par matière
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {subjectPerformance.map((subject) => (
-                <div key={subject.name}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{subject.name}</span>
-                    <span className={`text-sm font-bold ${subject.color}`}>
-                      {subject.average.toFixed(1)}/20
-                    </span>
-                  </div>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        subject.average >= 12
-                          ? 'bg-green-500'
-                          : subject.average >= 10
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                      }`}
-                      style={{ width: `${(subject.average / 20) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <div className="segmented-tabs analytics-tabs">{['Semestre 1', 'Semestre 2', 'Global 26-27'].map((item) => <button type="button" key={item} className={period === item ? 'selected' : ''} onClick={() => setPeriod(item)}>{item}</button>)}</div>
+      <section className="analytics-summary">
+        <article><span>MOYENNE</span><strong>14.27<small> /20</small></strong><p className="up-text"><ArrowUpRight size={14} /> +1.12 pts vs S1</p></article>
+        <article><span>RANG PROMO</span><strong>5<small>e / 36</small></strong><Badge variant="info">Top 14% de promo</Badge></article>
+        <article className="strength"><span>ATOUT MAJEUR <Award size={14} /></span><strong>Anglais Pro</strong><p>16.40 <small>/20</small></p><Badge variant="success">Mention Très Bien</Badge></article>
+        <article className="weakness"><span>EN TENSION <span>!</span></span><strong>Mathématiques</strong><p>7.90 <small>/20</small></p><Badge variant="danger">Seuil de vigilance</Badge></article>
+      </section>
+      <section className="analytics-panel">
+        <div className="section-heading"><div><h2>Trajectoire Semestrielle</h2><p>Progression continue de 13.4 à 14.27</p></div><Badge variant="info">● S2 Actuel</Badge></div>
+        <div className="analytics-chart"><svg viewBox="0 0 360 140" preserveAspectRatio="none"><defs><linearGradient id="analytics-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4f41ee" stopOpacity=".2" /><stop offset="100%" stopColor="#4f41ee" stopOpacity="0" /></linearGradient></defs><path d="M18 97 C70 92 86 85 119 82 S168 72 205 69 S256 59 294 53 S328 46 345 40 L345 124 L18 124Z" fill="url(#analytics-area)" /><path d="M18 97 C70 92 86 85 119 82 S168 72 205 69 S256 59 294 53 S328 46 345 40" fill="none" stroke="#4838ef" strokeWidth="3" />{[[18,97],[119,82],[205,69],[294,53],[345,40]].map(([x,y]) => <circle key={x} cx={x} cy={y} r="4.5" fill="white" stroke="#4838ef" strokeWidth="2.5" />)}<line x1="12" x2="346" y1="111" y2="111" stroke="#f5b7bb" strokeDasharray="3 4" /></svg><div className="analytics-chart-labels"><span>Oct (13.4)</span><span>Nov</span><span>Déc</span><span>Jan</span><span>Fév (14.27)</span></div></div>
+      </section>
+      <section className="analytics-panel dispersion">
+        <div className="section-heading"><div><h2>Dispersion par Discipline</h2><p>Répartition des moyennes &amp; niveaux d&apos;acquisition</p></div><Badge variant="outline">6 cours</Badge></div>
+        <div className="performance-bars">{performance.map((item) => <div className="performance-row" key={item.name}><div><span className={`performance-dot ${item.color}`} /><span>{item.name}</span><strong className={`score-${item.color}`}>{item.value.toFixed(1)} / 20</strong></div><div className="subject-progress"><span className={item.color === 'green' ? 'validated' : item.color === 'blue' ? 'watch' : 'risk'} style={{ width: `${item.value * 5}%` }} /></div></div>)}</div>
+      </section>
+      <section className="diagnostic-panel">
+        <h2><Sparkles size={16} /> Diagnostic &amp; Régularité</h2>
+        <div className="diagnostic-grid"><article><span>Écart-type</span><strong>2.45 <small>pts</small></strong><p>Profil polarisé : excellence en pratique tech.</p></article><article><span>Compensation</span><strong className="score-green">98%</strong><p>L&apos;avance en info compense les maths.</p></article></div>
+        <div className="leverage-tip"><Lightbulb size={17} /><p><strong>Fort effet de levier identifié</strong><br />Base de données (Coeff 3) possède le plus fort potentiel : viser 12.0/20 à l&apos;examen final génèrera +0.34 pts.</p></div>
+      </section>
+      <section className="analytics-panel promo-panel"><div className="section-heading"><h2>Comparatif Promotion</h2><Badge variant="success">Avance nette</Badge></div><div className="promo-compare"><div><span>Ta moyenne</span><strong>14.27</strong></div><div><span className="score-green">+2.17 pts</span><small>—</small></div><div><span>Moyenne Promo</span><strong>12.10</strong></div></div><div className="validation-probability"><span><strong>96%</strong></span><div><strong>Validation Sans Rattrapage</strong><p>Probabilité statistique très élevée d&apos;obtenir ton année dès la première session.</p></div></div></section>
+      <Button className="w-full analytics-download"><Download size={15} className="mr-2" />Générer le rapport analytique semestriel</Button>
+      <Button variant="secondary" className="mt-2 w-full"><Flag size={15} className="mr-2" />Définir un nouvel objectif de note</Button>
     </AppLayout>
   );
 }

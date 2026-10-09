@@ -1,157 +1,75 @@
 'use client';
 
+import { useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
 import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
+  ArrowRight,
+  BookOpen,
+  CalendarCheck,
+  Clock3,
+  Lightbulb,
   MapPin,
-  User,
   Plus,
+  UserRound,
+  Utensils,
+  X,
 } from 'lucide-react';
 
-interface ScheduleItem {
-  id: string;
-  time: string;
-  title: string;
-  type: 'COURSE' | 'EXAM' | 'REVISION';
-  room?: string;
-  teacher?: string;
-  color: string;
-}
-
-interface DaySchedule {
-  day: string;
-  date: string;
-  items: ScheduleItem[];
-}
-
-const weekSchedule: DaySchedule[] = [
-  {
-    day: 'Lundi',
-    date: '6 octobre',
-    items: [
-      { id: '1', time: '08:00', title: 'Algorithmique', type: 'COURSE', room: 'B12', teacher: 'M. Dupont', color: 'border-l-indigo-500 bg-indigo-50' },
-      { id: '2', time: '10:00', title: 'Base de données', type: 'COURSE', room: 'C04', teacher: 'Mme Martin', color: 'border-l-emerald-500 bg-emerald-50' },
-      { id: '3', time: '14:00', title: 'Réseaux', type: 'COURSE', room: 'B08', teacher: 'M. Bernard', color: 'border-l-amber-500 bg-amber-50' },
-    ],
-  },
-  {
-    day: 'Mardi',
-    date: '7 octobre',
-    items: [
-      { id: '4', time: '09:00', title: 'Anglais', type: 'COURSE', room: 'A11', teacher: 'Mme Petit', color: 'border-l-rose-500 bg-rose-50' },
-      { id: '5', time: '11:00', title: 'Mathématiques', type: 'COURSE', room: 'B12', teacher: 'M. Dubois', color: 'border-l-purple-500 bg-purple-50' },
-      { id: '6', time: '14:00', title: 'TP Algorithmique', type: 'COURSE', room: 'Labo 3', teacher: 'M. Dupont', color: 'border-l-indigo-500 bg-indigo-50' },
-    ],
-  },
-  {
-    day: 'Mercredi',
-    date: '8 octobre',
-    items: [
-      { id: '7', time: '08:00', title: 'Réseaux', type: 'COURSE', room: 'B08', teacher: 'M. Bernard', color: 'border-l-amber-500 bg-amber-50' },
-      { id: '8', time: '10:00', title: 'Révision Algorithmique', type: 'REVISION', room: 'Bibliothèque', color: 'border-l-gray-500 bg-gray-50' },
-    ],
-  },
-  {
-    day: 'Jeudi',
-    date: '9 octobre',
-    items: [
-      { id: '9', time: '08:00', title: 'Base de données', type: 'COURSE', room: 'C04', teacher: 'Mme Martin', color: 'border-l-emerald-500 bg-emerald-50' },
-      { id: '10', time: '10:00', title: 'TD Mathématiques', type: 'COURSE', room: 'B12', teacher: 'M. Dubois', color: 'border-l-purple-500 bg-purple-50' },
-    ],
-  },
-  {
-    day: 'Vendredi',
-    date: '10 octobre',
-    items: [
-      { id: '11', time: '09:00', title: 'Algorithmique', type: 'COURSE', room: 'B12', teacher: 'M. Dupont', color: 'border-l-indigo-500 bg-indigo-50' },
-      { id: '12', time: '11:00', title: 'Anglais - Oral', type: 'EXAM', room: 'A11', teacher: 'Mme Petit', color: 'border-l-red-500 bg-red-50' },
-    ],
-  },
+type EventItem = { time: string; end: string; name: string; kind: string; detail: string; room: string; teacher: string; color: 'blue' | 'sky' | 'red' | 'violet' };
+const initialEvents: EventItem[] = [
+  { time: '08:30', end: '10:30', name: 'Algorithmique & Structures', kind: 'Cours magistral', detail: 'UE 1', room: 'Amphi B', teacher: 'Prof. M. Delorme', color: 'blue' },
+  { time: '10:45', end: '12:45', name: 'Bases de Données', kind: 'TP Pratique · Requêtes SQL avancées', detail: 'UE 2', room: 'Salle Info 204', teacher: 'Mme Lefebvre', color: 'sky' },
+  { time: '14:00', end: '16:00', name: 'Réseaux & Télécoms', kind: 'Épreuve sur table · Matériel autorisé : calculatrice', detail: 'EXAMEN PARTIEL', room: 'Salle C04', teacher: 'Coeff 3', color: 'red' },
 ];
 
-const typeBadge = {
-  COURSE: { label: 'Cours', variant: 'info' as const },
-  EXAM: { label: 'Examen', variant: 'danger' as const },
-  REVISION: { label: 'Révision', variant: 'outline' as const },
-};
+const weekDays = [{ day: 'Lun', date: '12' }, { day: 'Mar', date: '13' }, { day: 'Mer', date: '14' }, { day: 'Jeu', date: '15' }, { day: 'Ven', date: '16' }];
 
 export default function SchedulePage() {
-  const [currentWeek, setCurrentWeek] = useState(0);
+  const [view, setView] = useState('Semaine');
+  const [selectedDay, setSelectedDay] = useState('Mer');
+  const [events, setEvents] = useState(initialEvents);
+  const [showForm, setShowForm] = useState(false);
+  const [eventName, setEventName] = useState('');
+
+  const addEvent = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setEvents((current) => [...current, { time: '16:30', end: '17:30', name: eventName, kind: 'Session personnalisée', detail: 'Événement', room: 'Bibliothèque', teacher: 'Personnel', color: 'violet' }]);
+    setEventName('');
+    setShowForm(false);
+  };
 
   return (
     <AppLayout>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Emploi du temps</h1>
-          <p className="mt-1 text-gray-500">Semaine du {weekSchedule[0].date}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setCurrentWeek(currentWeek - 1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium">S{Math.abs(currentWeek) + 1}</span>
-          <Button variant="outline" size="sm" onClick={() => setCurrentWeek(currentWeek + 1)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter
-          </Button>
-        </div>
+      <div className="screen-heading">
+        <div><h1>Emploi du temps</h1><p>Organisation des cours et sessions d&apos;étude</p></div>
+        <button type="button" className="round-add-button" aria-label="Ajouter un événement" onClick={() => setShowForm(true)}><Plus size={23} /></button>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {weekSchedule.map((day) => (
-          <Card key={day.day}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                {day.day}
-                <span className="block text-sm font-normal text-gray-500">{day.date}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {day.items.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">Aucun cours</p>
-              ) : (
-                day.items.map((item) => {
-                  const badge = typeBadge[item.type];
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-lg border-l-4 p-3 ${item.color}`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                        <span className="text-xs text-gray-500">{item.time}</span>
-                      </div>
-                      <p className="font-medium text-sm">{item.title}</p>
-                      {item.room && (
-                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                          <MapPin className="h-3 w-3" />
-                          {item.room}
-                        </div>
-                      )}
-                      {item.teacher && (
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <User className="h-3 w-3" />
-                          {item.teacher}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
+      <div className="segmented-tabs schedule-tabs">{['Jour', 'Semaine', 'Mois'].map((item) => <button type="button" key={item} className={view === item ? 'selected' : ''} onClick={() => setView(item)}>{item}</button>)}</div>
+      <div className="day-selector">{weekDays.map((day) => <button type="button" key={day.day} className={selectedDay === day.day ? 'selected' : ''} onClick={() => setSelectedDay(day.day)}><span>{day.day}</span><strong>{day.date}</strong>{day.day === 'Mar' || day.day === 'Mer' || day.day === 'Ven' ? <i /> : null}</button>)}</div>
+      <div className="schedule-day-title"><span /><strong>{selectedDay === 'Mer' ? 'Mercredi 14 Février' : `${weekDays.find((day) => day.day === selectedDay)?.day} ${weekDays.find((day) => day.day === selectedDay)?.date} Février`} · {events.length} cours prévus</strong><Badge variant="outline">Semaine 07</Badge></div>
+      <div className="schedule-events">
+        {events.map((event, index) => (
+          <div key={`${event.name}-${index}`}>
+            {index === 2 && <div className="lunch-divider"><span /><Utensils size={15} /> Pause déjeuner (12:45 - 14:00)<span /></div>}
+            <article className={`schedule-event ${event.color}`}>
+              <div className="schedule-time"><Clock3 size={16} /><strong>{event.time} — {event.end}</strong><Badge variant={event.color === 'red' ? 'danger' : 'info'}>{event.detail}</Badge></div>
+              <h2>{event.name}</h2><p>{event.kind}</p>
+              <div className="schedule-event-meta"><span><MapPin size={14} />{event.room}</span><span><UserRound size={14} />{event.teacher}</span></div>
+            </article>
+          </div>
         ))}
+        <article className="schedule-event violet">
+          <div className="schedule-time"><Lightbulb size={16} /><strong>16:30 — 18:00</strong><Badge variant="success">Focus suggéré</Badge></div>
+          <h2>Révision Algorithmique</h2><p>Session d&apos;assimilation post-amphi</p>
+          <a href="/study-planner" className="schedule-event-meta suggested-link"><span><BookOpen size={14} />Bibliothèque Universitaire</span><span>Valider <ArrowRight size={14} /></span></a>
+        </article>
       </div>
+      <button type="button" className="custom-event-button" onClick={() => setShowForm(true)}><CalendarCheck size={18} /> Ajouter un événement personnalisé</button>
+      <div className="focus-preview"><span><Clock3 size={23} /></span><div><small>APERÇU DIRECT</small><strong>Prochaine session dans <u>45 min</u>…</strong></div><ArrowRight size={19} /></div>
+
+      {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="simple-modal" role="dialog" aria-modal="true" aria-labelledby="event-title"><button type="button" className="modal-close" onClick={() => setShowForm(false)} aria-label="Fermer"><X size={18} /></button><h2 id="event-title">Nouvel événement</h2><p>Ajoute une session à ton planning.</p><form onSubmit={addEvent}><label htmlFor="event-name">Nom de l&apos;événement</label><input id="event-name" autoFocus required value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="Ex. Révision de SQL" /><Button type="submit"><Plus size={16} className="mr-2" />Ajouter à la journée</Button></form></section></div>}
     </AppLayout>
   );
 }
